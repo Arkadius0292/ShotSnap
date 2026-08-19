@@ -1,0 +1,8 @@
+# ShotSnap .gitignore
+build/
+.build/
+*.o
+*.swp
+.DS_Store
+*.xcuserdata
+DerivedData/
