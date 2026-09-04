@@ -7,7 +7,7 @@
 [![macOS](https://img.shields.io/badge/macOS-11.0%2B-black?style=for-the-badge&logo=apple)](https://apple.com)
 [![Swift](https://img.shields.io/badge/Swift-6.0-F05138?style=for-the-badge&logo=swift&logoColor=white)](https://swift.org)
 [![Architecture](https://img.shields.io/badge/Arch-Apple_Silicon_%7C_Intel-007AFF?style=for-the-badge)](https://apple.com)
-[![Release](https://img.shields.io/badge/Release-v1.3.1-blue?style=for-the-badge)](https://github.com/Arkadius0292/ShotSnap/releases)
+[![Release](https://img.shields.io/badge/Release-v1.3.2-blue?style=for-the-badge)](https://github.com/Arkadius0292/ShotSnap/releases)
 [![Developer](https://img.shields.io/badge/Made_by-KULESH.PRO-0CE8FF?style=for-the-badge)](https://kulesh.pro)
 [![License](https://img.shields.io/badge/License-CC_BY--ND_4.0_%2B_Custom-green?style=for-the-badge)](LICENSE)
 
@@ -183,6 +183,13 @@ ShotSnap/
   - **AI Маска (`⌘D`)**: венецианская маска с золотыми объемными светящимися буквами «AI» для умного автоматического скрытия ПДн и секретов.
   - **Кнопки действий**: синяя изогнутая стрелка отмены (`Undo`), деревянный планшет с листом (`Paste`), зеленый пузатый бадж с белой галочкой (`Copy`), фиолетовые фигурные скобки `{Base64}`, документ с лазерным лучом сканирования (`OCR`), консольный бокс с подсказкой `>_` (`CLI`), классическая синяя 3.5" дискета (`Save`).
   - Все иконки интегрированы в бандл `ShotSnap.app/Contents/Resources/Icons/` в высоком разрешении Retina с плавной полупрозрачной отсечкой фона и отсутствием темных артефактов.
+
+### [v1.3.2](https://github.com/Arkadius0292/ShotSnap/releases/tag/v1.3.2) — *04 сентября 2026*
+- 🛡️ **Полная визуальная гармония масок (Идентичная база + стикер «AI»):**
+  - Пиктограмма ручной маски и AI-Маски приведены к абсолютно единой форме, глубокому сапфирово-синему градиенту и светящимся неоновым прорезям для глаз.
+  - Иконка AI-Маски отличается исключительно наложенным поверх виниловым стикером с белым контуром (die-cut sticker) и жирной контрастной надписью **«AI»**.
+- 📍 **Эргономика панели: AI-Маска перенесена в блок инструментов:**
+  - Кнопка AI-Маски перенесена из зоны действий непосредственно в стек инструментов и размещена в виде аккуратного квадратного тайла (32x32 pt) бок о бок с ручной маской размытия.
 
 ### [v1.3.1](https://github.com/Arkadius0292/ShotSnap/releases/tag/v1.3.1) — *04 сентября 2026*
 - 🎨 **Объемные 3D Claymorphic иконки с максимальной контрастностью:**

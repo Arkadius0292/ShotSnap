@@ -314,7 +314,7 @@ final class IconFactory {
     
     // MARK: - Mask 2: AI Smart Redact Mask (Монохромная AI-Маска с буквами AI)
     static func createAIMaskIcon() -> NSImage {
-        if let img = load3DIcon(name: "ai_mask", targetSize: CGSize(width: 22, height: 22)) {
+        if let img = load3DIcon(name: "ai_mask", targetSize: CGSize(width: 24, height: 24)) {
             return img
         }
         return createTemplateImage(size: CGSize(width: 20, height: 18)) { ctx in

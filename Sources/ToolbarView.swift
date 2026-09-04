@@ -236,6 +236,16 @@ final class ToolbarView: NSVisualEffectView {
             toolButtons[tool] = btn
             toolStack.addArrangedSubview(btn)
         }
+        
+        // AI Mask Square Button (Размещена рядышком с ручной маской!)
+        let aiMaskBtn = createIconButton(
+            image: IconFactory.createAIMaskIcon(),
+            tooltip: "AI-Автомаска: найти и скрыть пароли, ключи, токены и ПДн (⌘D)"
+        )
+        aiMaskBtn.target = self
+        aiMaskBtn.action = #selector(aiMaskClicked)
+        toolStack.addArrangedSubview(aiMaskBtn)
+        
         mainStack.addArrangedSubview(toolStack)
         
         // Separator
@@ -300,34 +310,7 @@ final class ToolbarView: NSVisualEffectView {
         // Separator
         mainStack.addArrangedSubview(createSeparator())
         
-        // 5. Dual Mask Option: AI Smart Mask (AI-Автомаска с локальным распознаванием)
-        let aiMaskBtn = NSButton(title: "AI Маска", target: self, action: #selector(aiMaskClicked))
-        aiMaskBtn.image = IconFactory.createAIMaskIcon()
-        aiMaskBtn.imagePosition = .imageLeading
-        aiMaskBtn.imageScaling = .scaleProportionallyDown
-        aiMaskBtn.bezelStyle = .rounded
-        aiMaskBtn.isBordered = false
-        aiMaskBtn.wantsLayer = true
-        aiMaskBtn.layer?.cornerRadius = 7
-        aiMaskBtn.layer?.backgroundColor = NSColor(red: 0.30, green: 0.15, blue: 0.50, alpha: 0.80).cgColor
-        aiMaskBtn.layer?.borderWidth = 1.2
-        aiMaskBtn.layer?.borderColor = NSColor(red: 0.65, green: 0.35, blue: 0.95, alpha: 0.70).cgColor
-        aiMaskBtn.attributedTitle = NSAttributedString(
-            string: "AI Маска",
-            attributes: [
-                .foregroundColor: NSColor.white,
-                .font: NSFont.systemFont(ofSize: 12, weight: .bold)
-            ]
-        )
-        aiMaskBtn.toolTip = "AI-Автомаска: найти и скрыть пароли, ключи, токены и ПДн (⌘D)"
-        aiMaskBtn.translatesAutoresizingMaskIntoConstraints = false
-        aiMaskBtn.heightAnchor.constraint(equalToConstant: 32).isActive = true
-        mainStack.addArrangedSubview(aiMaskBtn)
-        
-        // Separator
-        mainStack.addArrangedSubview(createSeparator())
-        
-        // 6. Action Buttons (Copy, Base64, OCR, CLI Path, Save)
+        // 5. Action Buttons (Copy, Base64, OCR, CLI Path, Save)
         let copyBtn = NSButton(title: "Скопировать (⏎)", target: self, action: #selector(copyClicked))
         copyBtn.image = IconFactory.createCopyIcon()
         copyBtn.imagePosition = .imageLeading
