@@ -1,32 +1,22 @@
 import Cocoa
 
 final class EditorWindowController: NSWindowController, ToolbarViewDelegate, CanvasViewDelegate {
-    private var canvasView: CanvasView!
     private var toolbarView: ToolbarView!
+    private var canvasView: CanvasView!
     private var localKeyMonitor: Any?
+    
+    private var canvasWidthConstraint: NSLayoutConstraint?
+    private var canvasHeightConstraint: NSLayoutConstraint?
+    
     var onWindowDidClose: (() -> Void)?
     
-    static let toolbarHeight: CGFloat = 46.0
-    static let minToolbarWidth: CGFloat = 720.0
+    static let toolbarHeight: CGFloat = 44.0
+    static let minToolbarWidth: CGFloat = 660.0
     
     convenience init(image: NSImage, targetScreen: NSScreen? = nil) {
-        // 1. Identify the fresh active screen
-        let currentScreens = NSScreen.screens
-        let mousePos = NSEvent.mouseLocation
-        
-        let screen: NSScreen
-        if let target = targetScreen, currentScreens.contains(where: { $0.frame == target.frame }) {
-            screen = target
-        } else if let mouseScreen = currentScreens.first(where: { NSMouseInRect(mousePos, $0.frame, false) }) {
-            screen = mouseScreen
-        } else {
-            screen = NSScreen.main ?? currentScreens.first ?? NSScreen()
-        }
-        
-        let screenScale = screen.backingScaleFactor
+        let screen = targetScreen ?? NSScreen.main ?? NSScreen.screens.first!
         let screenVisibleFrame = screen.visibleFrame
-        
-        logSnap("🖥 Активный экран [\(currentScreens.count) подкл.]: frame=\(screen.frame), visibleFrame=\(screenVisibleFrame), mousePos=\(mousePos), scale=\(screenScale)")
+        let screenScale = screen.backingScaleFactor
         
         let maxAllowedWidth = max(500.0, screenVisibleFrame.width * 0.94)
         let maxAllowedHeight = max(350.0, (screenVisibleFrame.height - Self.toolbarHeight - 32.0) * 0.90)
@@ -133,6 +123,11 @@ final class EditorWindowController: NSWindowController, ToolbarViewDelegate, Can
         
         canvasContainer.addSubview(canvasView)
         
+        let widthConstraint = canvasView.widthAnchor.constraint(equalToConstant: canvasSize.width)
+        let heightConstraint = canvasView.heightAnchor.constraint(equalToConstant: canvasSize.height)
+        self.canvasWidthConstraint = widthConstraint
+        self.canvasHeightConstraint = heightConstraint
+        
         NSLayoutConstraint.activate([
             // Toolbar layout (pinned to top of content view)
             toolbarView.topAnchor.constraint(equalTo: contentView.topAnchor),
@@ -149,8 +144,8 @@ final class EditorWindowController: NSWindowController, ToolbarViewDelegate, Can
             // Canvas view centered in container with exact size
             canvasView.centerXAnchor.constraint(equalTo: canvasContainer.centerXAnchor),
             canvasView.centerYAnchor.constraint(equalTo: canvasContainer.centerYAnchor),
-            canvasView.widthAnchor.constraint(equalToConstant: canvasSize.width),
-            canvasView.heightAnchor.constraint(equalToConstant: canvasSize.height)
+            widthConstraint,
+            heightConstraint
         ])
     }
     
@@ -171,6 +166,12 @@ final class EditorWindowController: NSWindowController, ToolbarViewDelegate, Can
                         self.performCopy()
                     }
                     return nil
+                case "v":
+                    // ⌘V: Paste image or text onto canvas if not editing active text view
+                    if !(self.window?.firstResponder is NSText) {
+                        self.performPasteFromClipboard()
+                        return nil
+                    }
                 case "b":
                     self.toolbarDidClickBase64()
                     return nil
@@ -223,6 +224,51 @@ final class EditorWindowController: NSWindowController, ToolbarViewDelegate, Can
         }
     }
     
+    // MARK: - Clipboard Paste Action
+    private func performPasteFromClipboard() {
+        let pasteboard = NSPasteboard.general
+        
+        // 1. Check for image
+        if let image = NSImage(pasteboard: pasteboard) {
+            canvasView.pasteImage(image)
+            return
+        }
+        
+        // 2. Check for text
+        if let str = pasteboard.string(forType: .string), !str.isEmpty {
+            canvasView.pasteText(str)
+            return
+        }
+    }
+    
+    // MARK: - Canvas Delegate & Window Auto-Expansion
+    func canvasDidChangeSize(_ canvas: CanvasView, newSize: CGSize) {
+        canvasWidthConstraint?.constant = newSize.width
+        canvasHeightConstraint?.constant = newSize.height
+        
+        guard let window = window else { return }
+        let screen = window.screen ?? NSScreen.main ?? NSScreen.screens.first!
+        let screenFrame = screen.visibleFrame
+        
+        let maxAllowedWidth = screenFrame.width * 0.96
+        let maxAllowedHeight = (screenFrame.height - Self.toolbarHeight - 32.0) * 0.94
+        
+        let targetContentWidth = min(maxAllowedWidth, max(Self.minToolbarWidth, newSize.width))
+        let targetContentHeight = min(maxAllowedHeight, newSize.height + Self.toolbarHeight)
+        
+        let currentContentRect = window.contentRect(forFrameRect: window.frame)
+        let deltaW = targetContentWidth - currentContentRect.width
+        let deltaH = targetContentHeight - currentContentRect.height
+        
+        if abs(deltaW) > 1.0 || abs(deltaH) > 1.0 {
+            let newX = max(screenFrame.minX, min(screenFrame.maxX - targetContentWidth, currentContentRect.minX - deltaW / 2.0))
+            let newY = max(screenFrame.minY, min(screenFrame.maxY - targetContentHeight, currentContentRect.minY - deltaH / 2.0))
+            let newContentRect = NSRect(x: newX, y: newY, width: targetContentWidth, height: targetContentHeight)
+            let newWindowFrame = window.frameRect(forContentRect: newContentRect)
+            window.setFrame(newWindowFrame, display: true, animate: true)
+        }
+    }
+    
     // MARK: - Toolbar Actions
     func toolbarDidSelectTool(_ tool: ToolType) {
         canvasView.currentTool = tool
@@ -250,6 +296,7 @@ final class EditorWindowController: NSWindowController, ToolbarViewDelegate, Can
         
         let result = ImageRenderer.render(
             baseImage: base,
+            baseImageRect: canvasView.baseImageRect,
             annotations: canvasView.annotations,
             viewBounds: canvasView.bounds
         )
@@ -265,6 +312,7 @@ final class EditorWindowController: NSWindowController, ToolbarViewDelegate, Can
         
         let result = ImageRenderer.render(
             baseImage: base,
+            baseImageRect: canvasView.baseImageRect,
             annotations: canvasView.annotations,
             viewBounds: canvasView.bounds
         )
@@ -293,6 +341,7 @@ final class EditorWindowController: NSWindowController, ToolbarViewDelegate, Can
         
         let result = ImageRenderer.render(
             baseImage: base,
+            baseImageRect: canvasView.baseImageRect,
             annotations: canvasView.annotations,
             viewBounds: canvasView.bounds
         )
@@ -330,6 +379,7 @@ final class EditorWindowController: NSWindowController, ToolbarViewDelegate, Can
         
         let result = ImageRenderer.render(
             baseImage: base,
+            baseImageRect: canvasView.baseImageRect,
             annotations: canvasView.annotations,
             viewBounds: canvasView.bounds
         )
@@ -344,6 +394,7 @@ final class EditorWindowController: NSWindowController, ToolbarViewDelegate, Can
         
         let result = ImageRenderer.render(
             baseImage: base,
+            baseImageRect: canvasView.baseImageRect,
             annotations: canvasView.annotations,
             viewBounds: canvasView.bounds
         )

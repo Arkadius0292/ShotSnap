@@ -4,7 +4,12 @@ final class ImageRenderer {
     static let persistentPath = "/tmp/shotsnap_latest.png"
     static let userDirPersistentPath = NSString(string: "~/.shotsnap/latest.png").expandingTildeInPath
     
-    static func render(baseImage: NSImage, annotations: [BaseAnnotation], viewBounds: CGRect) -> (image: NSImage, pngData: Data?) {
+    static func render(
+        baseImage: NSImage,
+        baseImageRect: CGRect? = nil,
+        annotations: [BaseAnnotation],
+        viewBounds: CGRect
+    ) -> (image: NSImage, pngData: Data?) {
         let scale: CGFloat
         if let rep = baseImage.representations.first {
             scale = max(1.0, CGFloat(rep.pixelsWide) / max(viewBounds.width, 1))
@@ -30,18 +35,33 @@ final class ImageRenderer {
         
         context.scaleBy(x: scale, y: scale)
         
-        // 1. Draw base image
+        // 1. Draw background and base image
         NSGraphicsContext.saveGraphicsState()
         let nsContext = NSGraphicsContext(cgContext: context, flipped: false)
         NSGraphicsContext.current = nsContext
         
-        baseImage.draw(in: viewBounds)
+        let bRect = baseImageRect ?? viewBounds
+        
+        if bRect != viewBounds && viewBounds.width > 0 && viewBounds.height > 0 {
+            context.setFillColor(NSColor(white: 0.12, alpha: 1.0).cgColor)
+            context.fill(viewBounds)
+            
+            context.saveGState()
+            context.setShadow(offset: CGSize(width: 0, height: -2), blur: 8, color: NSColor.black.withAlphaComponent(0.45).cgColor)
+            context.setFillColor(NSColor.black.cgColor)
+            let cardPath = CGPath(roundedRect: bRect, cornerWidth: 4, cornerHeight: 4, transform: nil)
+            context.addPath(cardPath)
+            context.fillPath()
+            context.restoreGState()
+        }
+        
+        baseImage.draw(in: bRect)
         
         // 2. Draw annotations without selection handles
         for annotation in annotations {
             let wasSelected = annotation.isSelected
             annotation.isSelected = false
-            annotation.draw(in: context, baseImage: baseImage, viewBounds: viewBounds)
+            annotation.draw(in: context, baseImage: baseImage, baseImageRect: bRect, viewBounds: viewBounds)
             annotation.isSelected = wasSelected
         }
         

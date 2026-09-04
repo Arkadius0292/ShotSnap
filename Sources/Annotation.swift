@@ -43,7 +43,7 @@ enum ToolType: String, CaseIterable {
         case .rect: return "Прямоугольная рамка (R)"
         case .pen: return "Карандаш для рисования от руки (P)"
         case .highlighter: return "Полупрозрачный маркер для текста (H)"
-        case .text: return "Текстовая надпись с масштабированием (T)"
+        case .text: return "Текстовый блок с автопереносом (T)"
         case .step: return "Автонумерованные круглые шаги ❶ ❷ ❸ (S)"
         case .blur: return "Объективное оптическое размытие фона (B)"
         }
@@ -71,7 +71,7 @@ class BaseAnnotation: NSObject, NSCopying {
         super.init()
     }
     
-    func draw(in context: CGContext, baseImage: NSImage?, viewBounds: CGRect) {
+    func draw(in context: CGContext, baseImage: NSImage?, baseImageRect: CGRect? = nil, viewBounds: CGRect) {
         // Subclasses override
     }
     
@@ -80,7 +80,7 @@ class BaseAnnotation: NSObject, NSCopying {
     }
     
     func hitTest(point: CGPoint) -> Bool {
-        return boundingBox.insetBy(dx: -8, dy: -8).contains(point)
+        return boundingBox.contains(point)
     }
     
     func hitTestHandle(point: CGPoint) -> AnnotationHandle? {
@@ -103,7 +103,7 @@ class BaseAnnotation: NSObject, NSCopying {
         guard isSelected else { return }
         context.saveGState()
         
-        let rect = boundingBox.insetBy(dx: -6, dy: -6)
+        let rect = boundingBox.insetBy(dx: -5, dy: -5)
         
         // Dashed border
         context.setStrokeColor(NSColor(red: 0.0, green: 0.55, blue: 1.0, alpha: 0.9).cgColor)
@@ -159,23 +159,21 @@ final class ArrowAnnotation: BaseAnnotation {
         let maxX = max(start.x, max(end.x, mid.x))
         let minY = min(start.y, min(end.y, mid.y))
         let maxY = max(start.y, max(end.y, mid.y))
-        let padding = max(20.0, lineWidth * 4)
+        let padding = max(16.0, lineWidth * 3.5)
         return CGRect(
             x: minX - padding,
             y: minY - padding,
-            width: max(maxX - minX + padding * 2, 24),
-            height: max(maxY - minY + padding * 2, 24)
+            width: max(maxX - minX + padding * 2, 20),
+            height: max(maxY - minY + padding * 2, 20)
         )
     }
     
     override func hitTest(point: CGPoint) -> Bool {
-        if hitTestHandle(point: point) != nil {
-            return true
-        }
-        
+        // Strict tolerance: clicks must be very close to the stroke (within ~5px)
         let mid = effectiveControlPoint
         let steps = 24
         var prev = start
+        let strokeTolerance = max(5.0, lineWidth * 0.75 + 1.5)
         
         for i in 1...steps {
             let t = CGFloat(i) / CGFloat(steps)
@@ -192,7 +190,7 @@ final class ArrowAnnotation: BaseAnnotation {
                 let u = max(0, min(1, ((point.x - prev.x) * dx + (point.y - prev.y) * dy) / lenSq))
                 let projX = prev.x + u * dx
                 let projY = prev.y + u * dy
-                if hypot(point.x - projX, point.y - projY) <= max(14.0, lineWidth * 2.5) {
+                if hypot(point.x - projX, point.y - projY) <= strokeTolerance {
                     return true
                 }
             }
@@ -202,7 +200,8 @@ final class ArrowAnnotation: BaseAnnotation {
     }
     
     override func hitTestHandle(point: CGPoint) -> AnnotationHandle? {
-        let handleRadius: CGFloat = 12.0
+        guard isSelected else { return nil }
+        let handleRadius: CGFloat = 10.0
         
         if hypot(point.x - start.x, point.y - start.y) <= handleRadius {
             return .startPoint
@@ -248,7 +247,7 @@ final class ArrowAnnotation: BaseAnnotation {
         return copy
     }
     
-    override func draw(in context: CGContext, baseImage: NSImage?, viewBounds: CGRect) {
+    override func draw(in context: CGContext, baseImage: NSImage?, baseImageRect: CGRect? = nil, viewBounds: CGRect) {
         let mid = effectiveControlPoint
         let dx = end.x - mid.x
         let dy = end.y - mid.y
@@ -369,8 +368,10 @@ final class RectAnnotation: BaseAnnotation {
     
     override func hitTest(point: CGPoint) -> Bool {
         let normalized = rect.standardized
-        let outer = normalized.insetBy(dx: -max(12, lineWidth), dy: -max(12, lineWidth))
-        let inner = normalized.insetBy(dx: max(12, lineWidth), dy: max(12, lineWidth))
+        // Strict tolerance: click must be right on the border (or inside if filled)
+        let strokeTolerance = max(4.0, lineWidth * 0.75 + 1.5)
+        let outer = normalized.insetBy(dx: -strokeTolerance, dy: -strokeTolerance)
+        let inner = normalized.insetBy(dx: strokeTolerance, dy: strokeTolerance)
         
         if isFilled {
             return outer.contains(point)
@@ -379,8 +380,9 @@ final class RectAnnotation: BaseAnnotation {
     }
     
     override func hitTestHandle(point: CGPoint) -> AnnotationHandle? {
+        guard isSelected else { return nil }
         let norm = rect.standardized
-        let radius: CGFloat = 10.0
+        let radius: CGFloat = 8.0
         
         if hypot(point.x - norm.minX, point.y - norm.minY) <= radius { return .bottomLeft }
         if hypot(point.x - norm.maxX, point.y - norm.minY) <= radius { return .bottomRight }
@@ -417,7 +419,7 @@ final class RectAnnotation: BaseAnnotation {
         return copy
     }
     
-    override func draw(in context: CGContext, baseImage: NSImage?, viewBounds: CGRect) {
+    override func draw(in context: CGContext, baseImage: NSImage?, baseImageRect: CGRect? = nil, viewBounds: CGRect) {
         context.saveGState()
         let normalized = rect.standardized
         let cornerRadius: CGFloat = 6.0
@@ -461,12 +463,13 @@ final class PenAnnotation: BaseAnnotation {
             minY = min(minY, p.y)
             maxY = max(maxY, p.y)
         }
-        let pad = max(10, lineWidth)
+        let pad = max(6, lineWidth)
         return CGRect(x: minX - pad, y: minY - pad, width: maxX - minX + pad * 2, height: maxY - minY + pad * 2)
     }
     
     override func hitTest(point: CGPoint) -> Bool {
         guard points.count > 1 else { return false }
+        let strokeTolerance = max(4.0, lineWidth * 0.75 + 1.5)
         for i in 0..<(points.count - 1) {
             let p1 = points[i]
             let p2 = points[i + 1]
@@ -477,7 +480,7 @@ final class PenAnnotation: BaseAnnotation {
             let t = max(0, min(1, ((point.x - p1.x) * dx + (point.y - p1.y) * dy) / lenSq))
             let projX = p1.x + t * dx
             let projY = p1.y + t * dy
-            if hypot(point.x - projX, point.y - projY) <= max(12.0, lineWidth * 1.5) {
+            if hypot(point.x - projX, point.y - projY) <= strokeTolerance {
                 return true
             }
         }
@@ -497,7 +500,7 @@ final class PenAnnotation: BaseAnnotation {
         return copy
     }
     
-    override func draw(in context: CGContext, baseImage: NSImage?, viewBounds: CGRect) {
+    override func draw(in context: CGContext, baseImage: NSImage?, baseImageRect: CGRect? = nil, viewBounds: CGRect) {
         guard points.count > 1 else { return }
         context.saveGState()
         
@@ -526,30 +529,45 @@ final class PenAnnotation: BaseAnnotation {
     }
 }
 
-// MARK: - Text Annotation (Scalable via corner handles)
+// MARK: - Text Annotation (Multiline Auto-Wrapping with Resizable Frame)
 final class TextAnnotation: BaseAnnotation {
     var origin: CGPoint
+    var width: CGFloat
     var text: String
     var fontSize: CGFloat
     
-    init(origin: CGPoint, text: String, color: NSColor, fontSize: CGFloat = 17.0) {
+    init(origin: CGPoint, width: CGFloat = 240.0, text: String, color: NSColor, fontSize: CGFloat = 17.0) {
         self.origin = origin
+        self.width = max(60.0, width)
         self.text = text
         self.fontSize = fontSize
         super.init(color: color, lineWidth: 1.0)
     }
     
-    override var boundingBox: CGRect {
+    func measuredSize(for targetWidth: CGFloat) -> CGSize {
         let font = NSFont.systemFont(ofSize: fontSize, weight: .semibold)
-        let attr = NSAttributedString(string: text, attributes: [.font: font])
-        let size = attr.size()
-        let padding: CGFloat = 6.0
-        return CGRect(
-            x: origin.x - padding,
-            y: origin.y - padding,
-            width: size.width + padding * 2,
-            height: size.height + padding * 2
+        let style = NSMutableParagraphStyle()
+        style.lineBreakMode = .byWordWrapping
+        style.hyphenationFactor = 1.0 // Russian hyphenation
+        
+        let attr = NSAttributedString(string: text.isEmpty ? " " : text, attributes: [
+            .font: font,
+            .paragraphStyle: style
+        ])
+        
+        let padH: CGFloat = 10.0
+        let padV: CGFloat = 8.0
+        let availableWidth = max(20.0, targetWidth - padH * 2)
+        let rect = attr.boundingRect(
+            with: CGSize(width: availableWidth, height: .greatestFiniteMagnitude),
+            options: [.usesLineFragmentOrigin, .usesFontLeading]
         )
+        return CGSize(width: max(targetWidth, 50.0), height: ceil(rect.height) + padV * 2)
+    }
+    
+    override var boundingBox: CGRect {
+        let size = measuredSize(for: width)
+        return CGRect(origin: origin, size: size)
     }
     
     override func hitTest(point: CGPoint) -> Bool {
@@ -557,8 +575,9 @@ final class TextAnnotation: BaseAnnotation {
     }
     
     override func hitTestHandle(point: CGPoint) -> AnnotationHandle? {
+        guard isSelected else { return nil }
         let box = boundingBox
-        let radius: CGFloat = 10.0
+        let radius: CGFloat = 8.0
         
         if hypot(point.x - box.minX, point.y - box.minY) <= radius { return .bottomLeft }
         if hypot(point.x - box.maxX, point.y - box.minY) <= radius { return .bottomRight }
@@ -569,24 +588,30 @@ final class TextAnnotation: BaseAnnotation {
     }
     
     override func moveHandle(_ handle: AnnotationHandle, to point: CGPoint) {
-        let box = boundingBox
-        let currentHeight = max(box.height - 12.0, 10.0)
-        var targetHeight: CGFloat = currentHeight
+        let minW: CGFloat = 60.0
+        let oldBox = boundingBox
         
         switch handle {
-        case .topRight, .topLeft:
-            targetHeight = max(10.0, point.y - origin.y)
-        case .bottomRight, .bottomLeft:
-            targetHeight = max(10.0, (origin.y + currentHeight) - point.y)
-            origin.y = point.y
+        case .topRight, .bottomRight:
+            let newWidth = max(minW, point.x - origin.x)
+            width = newWidth
+            // Pin the top edge when resizing from bottom
+            if handle == .bottomRight {
+                let newSize = measuredSize(for: newWidth)
+                origin.y = oldBox.maxY - newSize.height
+            }
+        case .topLeft, .bottomLeft:
+            let rightEdge = oldBox.maxX
+            let newOriginX = min(rightEdge - minW, point.x)
+            let newWidth = rightEdge - newOriginX
+            origin.x = newOriginX
+            width = newWidth
+            if handle == .bottomLeft {
+                let newSize = measuredSize(for: newWidth)
+                origin.y = oldBox.maxY - newSize.height
+            }
         default:
             break
-        }
-        
-        if targetHeight > 5 {
-            let scaleRatio = targetHeight / currentHeight
-            let newFontSize = max(10.0, min(80.0, fontSize * scaleRatio))
-            fontSize = round(newFontSize)
         }
     }
     
@@ -596,39 +621,53 @@ final class TextAnnotation: BaseAnnotation {
     }
     
     override func copy(with zone: NSZone? = nil) -> Any {
-        let copy = TextAnnotation(origin: origin, text: text, color: color, fontSize: fontSize)
+        let copy = TextAnnotation(origin: origin, width: width, text: text, color: color, fontSize: fontSize)
         copy.isSelected = isSelected
         return copy
     }
     
-    override func draw(in context: CGContext, baseImage: NSImage?, viewBounds: CGRect) {
+    override func draw(in context: CGContext, baseImage: NSImage?, baseImageRect: CGRect? = nil, viewBounds: CGRect) {
         guard !text.isEmpty else { return }
         
         let font = NSFont.systemFont(ofSize: fontSize, weight: .semibold)
+        let style = NSMutableParagraphStyle()
+        style.lineBreakMode = .byWordWrapping
+        style.hyphenationFactor = 1.0
+        
         let textAttributes: [NSAttributedString.Key: Any] = [
             .font: font,
-            .foregroundColor: color
+            .foregroundColor: color,
+            .paragraphStyle: style
         ]
         
         let attrString = NSAttributedString(string: text, attributes: textAttributes)
         let bgRect = boundingBox
         
         context.saveGState()
-        context.setFillColor(NSColor.black.withAlphaComponent(0.65).cgColor)
-        let bgPath = CGPath(roundedRect: bgRect, cornerWidth: 5, cornerHeight: 5, transform: nil)
+        context.setFillColor(NSColor.black.withAlphaComponent(0.72).cgColor)
+        let bgPath = CGPath(roundedRect: bgRect, cornerWidth: 6, cornerHeight: 6, transform: nil)
         context.addPath(bgPath)
         context.fillPath()
         
-        context.setStrokeColor(color.withAlphaComponent(0.6).cgColor)
+        context.setStrokeColor(color.withAlphaComponent(0.65).cgColor)
         context.setLineWidth(1.0)
         context.addPath(bgPath)
         context.strokePath()
         context.restoreGState()
         
+        let padH: CGFloat = 10.0
+        let padV: CGFloat = 8.0
+        let textRect = CGRect(
+            x: bgRect.minX + padH,
+            y: bgRect.minY + padV,
+            width: max(20.0, bgRect.width - padH * 2),
+            height: max(10.0, bgRect.height - padV * 2)
+        )
+        
         NSGraphicsContext.saveGraphicsState()
         let nsContext = NSGraphicsContext(cgContext: context, flipped: false)
         NSGraphicsContext.current = nsContext
-        attrString.draw(at: origin)
+        attrString.draw(with: textRect, options: [.usesLineFragmentOrigin, .usesFontLeading])
         NSGraphicsContext.restoreGraphicsState()
         
         drawSelectionHighlight(in: context)
@@ -658,7 +697,7 @@ final class StepAnnotation: BaseAnnotation {
     }
     
     override func hitTest(point: CGPoint) -> Bool {
-        return hypot(point.x - center.x, point.y - center.y) <= radius + 6
+        return hypot(point.x - center.x, point.y - center.y) <= radius + 1.5
     }
     
     override func move(by delta: CGSize) {
@@ -672,7 +711,7 @@ final class StepAnnotation: BaseAnnotation {
         return copy
     }
     
-    override func draw(in context: CGContext, baseImage: NSImage?, viewBounds: CGRect) {
+    override func draw(in context: CGContext, baseImage: NSImage?, baseImageRect: CGRect? = nil, viewBounds: CGRect) {
         context.saveGState()
         let circleRect = boundingBox
         
@@ -737,7 +776,7 @@ final class BlurAnnotation: BaseAnnotation {
         return copy
     }
     
-    override func draw(in context: CGContext, baseImage: NSImage?, viewBounds: CGRect) {
+    override func draw(in context: CGContext, baseImage: NSImage?, baseImageRect: CGRect? = nil, viewBounds: CGRect) {
         guard let baseImage = baseImage,
               let cgImage = baseImage.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
             return
@@ -746,20 +785,25 @@ final class BlurAnnotation: BaseAnnotation {
         let normalized = rect.standardized
         guard normalized.width > 2 && normalized.height > 2 else { return }
         
-        let scaleX = CGFloat(cgImage.width) / viewBounds.width
-        let scaleY = CGFloat(cgImage.height) / viewBounds.height
+        let bRect = baseImageRect ?? viewBounds
+        let cropNormalized = normalized.intersection(bRect)
+        guard cropNormalized.width > 2 && cropNormalized.height > 2 else { return }
+        
+        let localX = cropNormalized.origin.x - bRect.origin.x
+        let localY = cropNormalized.origin.y - bRect.origin.y
+        let scaleX = CGFloat(cgImage.width) / bRect.width
+        let scaleY = CGFloat(cgImage.height) / bRect.height
         
         let cropRect = CGRect(
-            x: normalized.origin.x * scaleX,
-            y: normalized.origin.y * scaleY,
-            width: normalized.width * scaleX,
-            height: normalized.height * scaleY
+            x: localX * scaleX,
+            y: localY * scaleY,
+            width: cropNormalized.width * scaleX,
+            height: cropNormalized.height * scaleY
         )
         
         guard let cropped = cgImage.cropping(to: cropRect) else { return }
         
         let ciImage = CIImage(cgImage: cropped).clampedToExtent()
-        
         let filter = CIFilter(name: "CIGaussianBlur")
         filter?.setValue(ciImage, forKey: kCIInputImageKey)
         filter?.setValue(14.0, forKey: kCIInputRadiusKey)
@@ -783,6 +827,101 @@ final class BlurAnnotation: BaseAnnotation {
             
             context.restoreGState()
         }
+        
+        drawSelectionHighlight(in: context)
+    }
+}
+
+// MARK: - Image Annotation (Pasted from Clipboard)
+final class ImageAnnotation: BaseAnnotation {
+    var rect: CGRect
+    var image: NSImage
+    
+    init(image: NSImage, rect: CGRect) {
+        self.image = image
+        self.rect = rect
+        super.init(color: .white, lineWidth: 1.0)
+    }
+    
+    override var boundingBox: CGRect {
+        return rect.standardized
+    }
+    
+    override func hitTest(point: CGPoint) -> Bool {
+        return boundingBox.contains(point)
+    }
+    
+    override func hitTestHandle(point: CGPoint) -> AnnotationHandle? {
+        guard isSelected else { return nil }
+        let norm = rect.standardized
+        let radius: CGFloat = 8.0
+        
+        if hypot(point.x - norm.minX, point.y - norm.minY) <= radius { return .bottomLeft }
+        if hypot(point.x - norm.maxX, point.y - norm.minY) <= radius { return .bottomRight }
+        if hypot(point.x - norm.minX, point.y - norm.maxY) <= radius { return .topLeft }
+        if hypot(point.x - norm.maxX, point.y - norm.maxY) <= radius { return .topRight }
+        
+        return nil
+    }
+    
+    override func moveHandle(_ handle: AnnotationHandle, to point: CGPoint) {
+        let norm = rect.standardized
+        switch handle {
+        case .bottomLeft:
+            rect = CGRect(x: point.x, y: point.y, width: norm.maxX - point.x, height: norm.maxY - point.y).standardized
+        case .bottomRight:
+            rect = CGRect(x: norm.minX, y: point.y, width: point.x - norm.minX, height: norm.maxY - point.y).standardized
+        case .topLeft:
+            rect = CGRect(x: point.x, y: norm.minY, width: norm.maxX - point.x, height: point.y - norm.minY).standardized
+        case .topRight:
+            rect = CGRect(x: norm.minX, y: norm.minY, width: point.x - norm.minX, height: point.y - norm.minY).standardized
+        default:
+            break
+        }
+    }
+    
+    override func move(by delta: CGSize) {
+        rect.origin.x += delta.width
+        rect.origin.y += delta.height
+    }
+    
+    override func copy(with zone: NSZone? = nil) -> Any {
+        let copy = ImageAnnotation(image: image, rect: rect)
+        copy.isSelected = isSelected
+        return copy
+    }
+    
+    override func draw(in context: CGContext, baseImage: NSImage?, baseImageRect: CGRect? = nil, viewBounds: CGRect) {
+        let norm = rect.standardized
+        guard norm.width > 2 && norm.height > 2 else { return }
+        
+        context.saveGState()
+        context.setShadow(offset: CGSize(width: 0, height: -2), blur: 6, color: NSColor.black.withAlphaComponent(0.45).cgColor)
+        
+        let cornerRadius: CGFloat = 6.0
+        let path = CGPath(roundedRect: norm, cornerWidth: cornerRadius, cornerHeight: cornerRadius, transform: nil)
+        context.addPath(path)
+        context.clip()
+        
+        if let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) {
+            context.draw(cgImage, in: norm)
+        } else {
+            NSGraphicsContext.saveGraphicsState()
+            let nsContext = NSGraphicsContext(cgContext: context, flipped: false)
+            NSGraphicsContext.current = nsContext
+            image.draw(in: norm)
+            NSGraphicsContext.restoreGraphicsState()
+        }
+        
+        context.restoreGState()
+        
+        context.saveGState()
+        context.setStrokeColor(NSColor.white.withAlphaComponent(0.35).cgColor)
+        context.setLineWidth(1.0)
+        let borderPath = CGPath(roundedRect: norm, cornerWidth: cornerRadius, cornerHeight: cornerRadius, transform: nil)
+        context.addPath(borderPath)
+        context.strokePath()
+        context.restoreGState()
         
         drawSelectionHighlight(in: context)
     }

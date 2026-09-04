@@ -3,9 +3,27 @@ import Cocoa
 protocol CanvasViewDelegate: AnyObject {
     func canvasDidUpdateAnnotations(_ canvas: CanvasView)
     func canvasDidSelectAnnotation(_ annotation: BaseAnnotation?)
+    func canvasDidChangeSize(_ canvas: CanvasView, newSize: CGSize)
 }
 
-final class CanvasView: NSView, NSTextFieldDelegate {
+// MARK: - Custom Multiline Text View for In-place Editing
+final class CanvasTextView: NSTextView {
+    weak var canvasView: CanvasView?
+    
+    override func keyDown(with event: NSEvent) {
+        let isCmd = event.modifierFlags.contains(.command)
+        if event.keyCode == 36 && isCmd { // Cmd + Return / Enter commits multiline text
+            canvasView?.commitActiveTextField()
+            return
+        } else if event.keyCode == 53 { // Escape cancels editing
+            canvasView?.cancelActiveTextField()
+            return
+        }
+        super.keyDown(with: event)
+    }
+}
+
+final class CanvasView: NSView, NSTextViewDelegate {
     weak var delegate: CanvasViewDelegate?
     
     var baseImage: NSImage? {
@@ -15,9 +33,18 @@ final class CanvasView: NSView, NSTextFieldDelegate {
             selectedAnnotation = nil
             undoStack.removeAll()
             redoStack.removeAll()
+            
+            if let image = baseImage {
+                baseImageRect = CGRect(origin: .zero, size: image.size)
+                frame = baseImageRect
+            } else {
+                baseImageRect = .zero
+            }
             needsDisplay = true
         }
     }
+    
+    var baseImageRect: CGRect = .zero
     
     var currentTool: ToolType = .arrow {
         didSet {
@@ -81,9 +108,13 @@ final class CanvasView: NSView, NSTextFieldDelegate {
     private var isDraggingHandle = false
     private var isDraggingSelection = false
     
-    private var activeTextField: NSTextField?
+    // Text In-place Editor
+    private var activeTextScrollView: NSScrollView?
+    private var activeTextView: CanvasTextView?
     private var activeTextAnnotation: TextAnnotation?
     private var activeTextOrigin: CGPoint = .zero
+    private var activeTextWidth: CGFloat = 240.0
+    private var activeTextCreationRect: CGRect?
     
     override var isFlipped: Bool {
         return false
@@ -92,7 +123,7 @@ final class CanvasView: NSView, NSTextFieldDelegate {
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         wantsLayer = true
-        layer?.backgroundColor = NSColor(white: 0.12, alpha: 1.0).cgColor
+        layer?.backgroundColor = NSColor(white: 0.11, alpha: 1.0).cgColor
     }
     
     required init?(coder: NSCoder) {
@@ -120,6 +151,40 @@ final class CanvasView: NSView, NSTextFieldDelegate {
     
     private func updateCursor() {
         window?.invalidateCursorRects(for: self)
+    }
+    
+    // MARK: - Auto-Expand Canvas Bounds
+    func checkAndExpandCanvasIfNeeded() {
+        var unionRect = baseImageRect
+        for a in annotations {
+            unionRect = unionRect.union(a.boundingBox)
+        }
+        
+        let pad: CGFloat = 24.0
+        let leftPad: CGFloat = unionRect.minX < 0 ? ceil(abs(unionRect.minX) + pad) : 0
+        let bottomPad: CGFloat = unionRect.minY < 0 ? ceil(abs(unionRect.minY) + pad) : 0
+        let rightPad: CGFloat = unionRect.maxX > bounds.width ? ceil((unionRect.maxX - bounds.width) + pad) : 0
+        let topPad: CGFloat = unionRect.maxY > bounds.height ? ceil((unionRect.maxY - bounds.height) + pad) : 0
+        
+        if leftPad > 0 || bottomPad > 0 || rightPad > 0 || topPad > 0 {
+            // Shift all annotations and baseImage if expanding left or bottom
+            if leftPad > 0 || bottomPad > 0 {
+                let delta = CGSize(width: leftPad, height: bottomPad)
+                for a in annotations {
+                    a.move(by: delta)
+                }
+                baseImageRect.origin.x += leftPad
+                baseImageRect.origin.y += bottomPad
+            }
+            
+            let newWidth = bounds.width + leftPad + rightPad
+            let newHeight = bounds.height + bottomPad + topPad
+            let newSize = CGSize(width: newWidth, height: newHeight)
+            
+            frame = CGRect(origin: frame.origin, size: newSize)
+            needsDisplay = true
+            delegate?.canvasDidChangeSize(self, newSize: newSize)
+        }
     }
     
     // MARK: - Selection Management
@@ -159,6 +224,50 @@ final class CanvasView: NSView, NSTextFieldDelegate {
         needsDisplay = true
         delegate?.canvasDidUpdateAnnotations(self)
         delegate?.canvasDidSelectAnnotation(nil)
+    }
+    
+    // MARK: - Clipboard Paste (Images & Text)
+    func pasteImage(_ image: NSImage) {
+        commitActiveTextField()
+        
+        // Compute reasonable starting size
+        var imgSize = image.size
+        let maxW = max(100.0, bounds.width * 0.70)
+        let maxH = max(100.0, bounds.height * 0.70)
+        let scale = min(1.0, min(maxW / max(1, imgSize.width), maxH / max(1, imgSize.height)))
+        imgSize = CGSize(width: round(imgSize.width * scale), height: round(imgSize.height * scale))
+        
+        let origin = CGPoint(
+            x: round((bounds.width - imgSize.width) / 2.0),
+            y: round((bounds.height - imgSize.height) / 2.0)
+        )
+        
+        let imageAnn = ImageAnnotation(image: image, rect: CGRect(origin: origin, size: imgSize))
+        recordUndo()
+        annotations.append(imageAnn)
+        selectAnnotation(imageAnn)
+        checkAndExpandCanvasIfNeeded()
+        needsDisplay = true
+        delegate?.canvasDidUpdateAnnotations(self)
+        NSSound(named: "Hero")?.play()
+    }
+    
+    func pasteText(_ str: String) {
+        commitActiveTextField()
+        let width: CGFloat = min(320.0, max(180.0, bounds.width * 0.6))
+        let origin = CGPoint(
+            x: max(20.0, round((bounds.width - width) / 2.0)),
+            y: max(20.0, round((bounds.height - 80.0) / 2.0))
+        )
+        
+        let textAnn = TextAnnotation(origin: origin, width: width, text: str, color: currentColor, fontSize: currentFontSize)
+        recordUndo()
+        annotations.append(textAnn)
+        selectAnnotation(textAnn)
+        checkAndExpandCanvasIfNeeded()
+        needsDisplay = true
+        delegate?.canvasDidUpdateAnnotations(self)
+        NSSound(named: "Hero")?.play()
     }
     
     // MARK: - Undo / Redo
@@ -209,6 +318,7 @@ final class CanvasView: NSView, NSTextFieldDelegate {
         isDraggingHandle = false
         isDraggingSelection = false
         activeDragHandle = nil
+        activeTextCreationRect = nil
         
         commitActiveTextField()
         
@@ -221,7 +331,7 @@ final class CanvasView: NSView, NSTextFieldDelegate {
             return
         }
         
-        // 2. Direct Element Hit-Testing (Works in ANY tool mode without manual tool switching!)
+        // 2. Strict Hit-Testing for element selection
         var clickedAnnotation: BaseAnnotation?
         for a in annotations.reversed() {
             if a.hitTest(point: point) {
@@ -242,9 +352,9 @@ final class CanvasView: NSView, NSTextFieldDelegate {
                 isDraggingSelection = false
             }
             
-            // Double-click on text to edit
+            // Double-click on text to edit in-place
             if event.clickCount == 2, let textAnn = target as? TextAnnotation {
-                showTextField(for: textAnn)
+                showTextEditor(for: textAnn)
             }
             
             needsDisplay = true
@@ -273,13 +383,15 @@ final class CanvasView: NSView, NSTextFieldDelegate {
             activeAnnotation = PenAnnotation(points: penPoints, color: currentColor, lineWidth: currentLineWidth, isHighlighter: true)
             
         case .text:
-            showNewTextField(at: point)
+            // Will track drag box or click
+            activeTextCreationRect = CGRect(origin: point, size: .zero)
             
         case .step:
             recordUndo()
             let step = StepAnnotation(center: point, number: stepCounter, color: currentColor, radius: currentStepRadius)
             annotations.append(step)
             stepCounter += 1
+            checkAndExpandCanvasIfNeeded()
             needsDisplay = true
             delegate?.canvasDidUpdateAnnotations(self)
             
@@ -293,7 +405,7 @@ final class CanvasView: NSView, NSTextFieldDelegate {
     override func mouseDragged(with event: NSEvent) {
         let currentPoint = convert(event.locationInWindow, from: nil)
         
-        // 1. Handle dragging (e.g. arrow start, arrow end, arrow bend point, rect corner, text corner resize)
+        // 1. Handle dragging (e.g. arrow start, arrow end, arrow bend point, rect corner, text frame resize)
         if isDraggingHandle, let selected = selectedAnnotation, let handle = activeDragHandle {
             selected.moveHandle(handle, to: currentPoint)
             needsDisplay = true
@@ -334,6 +446,14 @@ final class CanvasView: NSView, NSTextFieldDelegate {
             penPoints.append(currentPoint)
             activeAnnotation = PenAnnotation(points: penPoints, color: currentColor, lineWidth: currentLineWidth, isHighlighter: true)
             
+        case .text:
+            activeTextCreationRect = CGRect(
+                x: min(dragStartPoint.x, currentPoint.x),
+                y: min(dragStartPoint.y, currentPoint.y),
+                width: abs(currentPoint.x - dragStartPoint.x),
+                height: abs(currentPoint.y - dragStartPoint.y)
+            )
+            
         case .blur:
             let rect = CGRect(
                 x: min(dragStartPoint.x, currentPoint.x),
@@ -343,7 +463,7 @@ final class CanvasView: NSView, NSTextFieldDelegate {
             )
             activeAnnotation = BlurAnnotation(rect: rect)
             
-        case .text, .step:
+        case .step:
             break
         }
         
@@ -355,7 +475,22 @@ final class CanvasView: NSView, NSTextFieldDelegate {
             isDraggingHandle = false
             isDraggingSelection = false
             activeDragHandle = nil
+            checkAndExpandCanvasIfNeeded()
             delegate?.canvasDidUpdateAnnotations(self)
+            return
+        }
+        
+        if currentTool == .text {
+            if let creationRect = activeTextCreationRect {
+                activeTextCreationRect = nil
+                let targetWidth = max(creationRect.width, 220.0)
+                let origin = CGPoint(x: creationRect.minX, y: creationRect.minY)
+                showNewTextEditor(origin: origin, width: targetWidth)
+            } else {
+                let point = convert(event.locationInWindow, from: nil)
+                showNewTextEditor(origin: point, width: 220.0)
+            }
+            needsDisplay = true
             return
         }
         
@@ -364,49 +499,88 @@ final class CanvasView: NSView, NSTextFieldDelegate {
             annotations.append(active)
             activeAnnotation = nil
             penPoints.removeAll()
+            checkAndExpandCanvasIfNeeded()
             needsDisplay = true
             delegate?.canvasDidUpdateAnnotations(self)
         }
     }
     
-    // MARK: - Text Field In-place Editing
-    private func showNewTextField(at point: CGPoint) {
-        activeTextOrigin = point
+    // MARK: - Multiline Text In-place Editing
+    private func showNewTextEditor(origin: CGPoint, width: CGFloat) {
+        activeTextOrigin = origin
+        activeTextWidth = max(width, 100.0)
         activeTextAnnotation = nil
         
-        let tf = NSTextField(frame: CGRect(x: point.x, y: point.y, width: 220, height: 32))
-        configureTextField(tf, initialText: "")
+        let initialHeight: CGFloat = 50.0
+        let frame = CGRect(x: origin.x, y: origin.y, width: activeTextWidth, height: initialHeight)
+        createInPlaceTextView(frame: frame, initialText: "")
     }
     
-    private func showTextField(for annotation: TextAnnotation) {
+    private func showTextEditor(for annotation: TextAnnotation) {
         activeTextOrigin = annotation.origin
+        activeTextWidth = annotation.width
         activeTextAnnotation = annotation
         
         let bounds = annotation.boundingBox
-        let tf = NSTextField(frame: bounds)
-        configureTextField(tf, initialText: annotation.text)
+        createInPlaceTextView(frame: bounds, initialText: annotation.text)
     }
     
-    private func configureTextField(_ tf: NSTextField, initialText: String) {
-        tf.stringValue = initialText
-        tf.font = NSFont.systemFont(ofSize: currentFontSize, weight: .semibold)
-        tf.textColor = currentColor
-        tf.backgroundColor = NSColor.black.withAlphaComponent(0.85)
-        tf.wantsLayer = true
-        tf.layer?.cornerRadius = 5
-        tf.isBordered = true
-        tf.focusRingType = .none
-        tf.placeholderString = "Введите текст..."
-        tf.delegate = self
+    private func createInPlaceTextView(frame: CGRect, initialText: String) {
+        commitActiveTextField()
         
-        addSubview(tf)
-        window?.makeFirstResponder(tf)
-        self.activeTextField = tf
+        let scrollView = NSScrollView(frame: frame)
+        scrollView.hasVerticalScroller = false
+        scrollView.hasHorizontalScroller = false
+        scrollView.drawsBackground = false
+        scrollView.borderType = .noBorder
+        scrollView.wantsLayer = true
+        scrollView.layer?.cornerRadius = 6
+        scrollView.layer?.borderWidth = 1.5
+        scrollView.layer?.borderColor = currentColor.cgColor
+        scrollView.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.85).cgColor
+        
+        let contentSize = scrollView.contentSize
+        let textStorage = NSTextStorage()
+        let layoutManager = NSLayoutManager()
+        textStorage.addLayoutManager(layoutManager)
+        
+        let textContainer = NSTextContainer(containerSize: NSSize(width: contentSize.width, height: CGFloat.greatestFiniteMagnitude))
+        textContainer.widthTracksTextView = true
+        textContainer.lineBreakMode = .byWordWrapping
+        layoutManager.addTextContainer(textContainer)
+        
+        let textView = CanvasTextView(frame: CGRect(origin: .zero, size: contentSize), textContainer: textContainer)
+        textView.canvasView = self
+        textView.isRichText = false
+        textView.importsGraphics = false
+        textView.isHorizontallyResizable = false
+        textView.isVerticallyResizable = true
+        textView.autoresizingMask = [.width]
+        textView.backgroundColor = .clear
+        textView.textColor = currentColor
+        textView.font = NSFont.systemFont(ofSize: currentFontSize, weight: .semibold)
+        
+        let style = NSMutableParagraphStyle()
+        style.lineBreakMode = .byWordWrapping
+        style.hyphenationFactor = 1.0
+        textView.defaultParagraphStyle = style
+        textView.string = initialText
+        
+        scrollView.documentView = textView
+        addSubview(scrollView)
+        
+        window?.makeFirstResponder(textView)
+        if !initialText.isEmpty {
+            textView.selectAll(nil)
+        }
+        
+        self.activeTextScrollView = scrollView
+        self.activeTextView = textView
     }
     
     func commitActiveTextField() {
-        guard let tf = activeTextField else { return }
-        let text = tf.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let tv = activeTextView, let sv = activeTextScrollView else { return }
+        let text = tv.string.trimmingCharacters(in: .whitespacesAndNewlines)
         
         if let existing = activeTextAnnotation {
             if text.isEmpty {
@@ -415,12 +589,14 @@ final class CanvasView: NSView, NSTextFieldDelegate {
             } else {
                 recordUndo()
                 existing.text = text
+                existing.width = activeTextWidth
                 existing.color = currentColor
             }
         } else if !text.isEmpty {
             recordUndo()
             let annotation = TextAnnotation(
                 origin: activeTextOrigin,
+                width: activeTextWidth,
                 text: text,
                 color: currentColor,
                 fontSize: currentFontSize
@@ -428,25 +604,22 @@ final class CanvasView: NSView, NSTextFieldDelegate {
             annotations.append(annotation)
         }
         
-        tf.removeFromSuperview()
-        activeTextField = nil
+        sv.removeFromSuperview()
+        activeTextScrollView = nil
+        activeTextView = nil
         activeTextAnnotation = nil
+        
+        checkAndExpandCanvasIfNeeded()
         needsDisplay = true
         delegate?.canvasDidUpdateAnnotations(self)
     }
     
-    func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
-        if commandSelector == #selector(NSResponder.insertNewline(_:)) {
-            commitActiveTextField()
-            return true
-        } else if commandSelector == #selector(NSResponder.cancelOperation(_:)) {
-            activeTextField?.removeFromSuperview()
-            activeTextField = nil
-            activeTextAnnotation = nil
-            needsDisplay = true
-            return true
-        }
-        return false
+    func cancelActiveTextField() {
+        activeTextScrollView?.removeFromSuperview()
+        activeTextScrollView = nil
+        activeTextView = nil
+        activeTextAnnotation = nil
+        needsDisplay = true
     }
     
     // MARK: - Drawing
@@ -454,19 +627,45 @@ final class CanvasView: NSView, NSTextFieldDelegate {
         super.draw(dirtyRect)
         guard let context = NSGraphicsContext.current?.cgContext else { return }
         
-        // 1. Draw base image
+        // 1. If canvas is expanded beyond base image, fill canvas background
+        if baseImageRect != bounds && bounds.width > 0 && bounds.height > 0 {
+            context.setFillColor(NSColor(white: 0.12, alpha: 1.0).cgColor)
+            context.fill(bounds)
+            
+            // Draw subtle drop shadow card for original baseImage
+            context.saveGState()
+            context.setShadow(offset: CGSize(width: 0, height: -2), blur: 8, color: NSColor.black.withAlphaComponent(0.45).cgColor)
+            context.setFillColor(NSColor.black.cgColor)
+            let cardPath = CGPath(roundedRect: baseImageRect, cornerWidth: 4, cornerHeight: 4, transform: nil)
+            context.addPath(cardPath)
+            context.fillPath()
+            context.restoreGState()
+        }
+        
+        // 2. Draw base image
         if let image = baseImage {
-            image.draw(in: bounds)
+            image.draw(in: baseImageRect)
         }
         
-        // 2. Draw committed annotations
+        // 3. Draw committed annotations
         for annotation in annotations {
-            annotation.draw(in: context, baseImage: baseImage, viewBounds: bounds)
+            annotation.draw(in: context, baseImage: baseImage, baseImageRect: baseImageRect, viewBounds: bounds)
         }
         
-        // 3. Draw active in-progress annotation
+        // 4. Draw active in-progress annotation
         if let active = activeAnnotation {
-            active.draw(in: context, baseImage: baseImage, viewBounds: bounds)
+            active.draw(in: context, baseImage: baseImage, baseImageRect: baseImageRect, viewBounds: bounds)
+        }
+        
+        // 5. Draw text creation preview rect if dragging text tool
+        if let textRect = activeTextCreationRect, textRect.width > 2 || textRect.height > 2 {
+            context.saveGState()
+            context.setStrokeColor(currentColor.withAlphaComponent(0.8).cgColor)
+            context.setLineWidth(1.5)
+            let dashes: [CGFloat] = [4.0, 3.0]
+            context.setLineDash(phase: 0, lengths: dashes)
+            context.stroke(textRect)
+            context.restoreGState()
         }
     }
 }
