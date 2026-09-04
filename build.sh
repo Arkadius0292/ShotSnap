@@ -9,6 +9,8 @@ echo "🔨 Компиляция ShotSnap..."
 mkdir -p build
 
 swiftc -O \
+    Sources/IconFactory.swift \
+    Sources/SensitiveDataDetector.swift \
     Sources/HotKeyManager.swift \
     Sources/CaptureManager.swift \
     Sources/OCRManager.swift \

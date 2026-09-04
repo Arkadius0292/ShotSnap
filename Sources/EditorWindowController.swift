@@ -8,7 +8,7 @@ final class EditorWindowController: NSWindowController, ToolbarViewDelegate, Can
     var onWindowDidClose: (() -> Void)?
     
     static let toolbarHeight: CGFloat = 44.0
-    static let minToolbarWidth: CGFloat = 720.0
+    static let minToolbarWidth: CGFloat = 880.0
     
     convenience init(image: NSImage, targetScreen: NSScreen? = nil) {
         let screen = targetScreen ?? NSScreen.main ?? NSScreen.screens.first!
@@ -156,6 +156,9 @@ final class EditorWindowController: NSWindowController, ToolbarViewDelegate, Can
                     }
                 case "b":
                     self.toolbarDidClickBase64()
+                    return nil
+                case "d":
+                    self.toolbarDidClickAIMask()
                     return nil
                 case "o":
                     self.toolbarDidClickOCR()
@@ -350,6 +353,24 @@ final class EditorWindowController: NSWindowController, ToolbarViewDelegate, Can
                 alert.messageText = "Текст не найден"
                 alert.informativeText = "На снимке не удалось распознать печатный текст."
                 alert.runModal()
+            }
+        }
+    }
+    
+    func toolbarDidClickAIMask() {
+        canvasView.commitActiveTextField()
+        guard let base = canvasView.baseImage else { return }
+        
+        SensitiveDataDetector.detectSensitiveAreas(in: base, baseImageRect: canvasView.baseImageRect) { [weak self] blurAnnotations in
+            guard let self = self else { return }
+            
+            if blurAnnotations.isEmpty {
+                NSSound(named: "Basso")?.play()
+                logSnap("🛡️ AI-Автомаска: конфиденциальных данных на снимке не обнаружено.")
+            } else {
+                self.canvasView.addAnnotationsWithUndo(blurAnnotations)
+                NSSound(named: "Hero")?.play()
+                logSnap("🛡️ AI-Автомаска: успешно замаскировано чувствительных фрагментов: \(blurAnnotations.count)")
             }
         }
     }

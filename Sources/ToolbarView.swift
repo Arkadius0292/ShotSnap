@@ -155,6 +155,7 @@ protocol ToolbarViewDelegate: AnyObject {
     func toolbarDidSelectSizePreset(lineWidth: CGFloat, stepRadius: CGFloat, fontSize: CGFloat)
     func toolbarDidClickUndo()
     func toolbarDidClickPaste()
+    func toolbarDidClickAIMask()
     func toolbarDidClickCopy()
     func toolbarDidClickBase64()
     func toolbarDidClickOCR()
@@ -227,7 +228,7 @@ final class ToolbarView: NSVisualEffectView {
         toolStack.spacing = 3
         
         for tool in ToolType.allCases {
-            let btn = createIconButton(iconName: tool.iconName, tooltip: tool.description)
+            let btn = createIconButton(image: tool.icon, tooltip: tool.description)
             btn.target = self
             btn.action = #selector(toolButtonClicked(_:))
             toolButtons[tool] = btn
@@ -280,12 +281,12 @@ final class ToolbarView: NSVisualEffectView {
         mainStack.addArrangedSubview(createSeparator())
         
         // 4. Undo & Paste Buttons
-        let undoBtn = createIconButton(iconName: "arrow.uturn.backward", tooltip: "Отменить (⌘Z)")
+        let undoBtn = createIconButton(image: IconFactory.createUndoIcon(), tooltip: "Отменить (⌘Z)")
         undoBtn.target = self
         undoBtn.action = #selector(undoClicked)
         mainStack.addArrangedSubview(undoBtn)
         
-        let pasteBtn = createIconButton(iconName: "doc.on.clipboard", tooltip: "Вставить картинку из буфера (⌘V)")
+        let pasteBtn = createIconButton(image: IconFactory.createPasteIcon(), tooltip: "Вставить из буфера (⌘V)")
         pasteBtn.target = self
         pasteBtn.action = #selector(pasteClicked)
         mainStack.addArrangedSubview(pasteBtn)
@@ -293,8 +294,22 @@ final class ToolbarView: NSVisualEffectView {
         // Separator
         mainStack.addArrangedSubview(createSeparator())
         
-        // 5. Action Buttons (Copy, Base64, OCR, CLI Path, Save)
-        let copyBtn = NSButton(title: "📋 Скопировать (⏎)", target: self, action: #selector(copyClicked))
+        // 5. Dual Mask Option: AI Smart Mask (AI-Автомаска с локальным распознаванием)
+        let aiMaskBtn = NSButton(title: "AI Маска", target: self, action: #selector(aiMaskClicked))
+        aiMaskBtn.image = IconFactory.createAIMaskIcon()
+        aiMaskBtn.imagePosition = .imageLeading
+        aiMaskBtn.bezelStyle = .rounded
+        aiMaskBtn.toolTip = "AI-Автомаска: найти и скрыть пароли, ключи, токены и ПДн (⌘D)"
+        aiMaskBtn.font = NSFont.systemFont(ofSize: 12, weight: .semibold)
+        mainStack.addArrangedSubview(aiMaskBtn)
+        
+        // Separator
+        mainStack.addArrangedSubview(createSeparator())
+        
+        // 6. Action Buttons (Copy, Base64, OCR, CLI Path, Save)
+        let copyBtn = NSButton(title: "Скопировать (⏎)", target: self, action: #selector(copyClicked))
+        copyBtn.image = IconFactory.createCopyIcon()
+        copyBtn.imagePosition = .imageLeading
         copyBtn.bezelStyle = .rounded
         copyBtn.wantsLayer = true
         copyBtn.contentTintColor = .white
@@ -303,28 +318,39 @@ final class ToolbarView: NSVisualEffectView {
         copyBtn.font = NSFont.systemFont(ofSize: 12, weight: .bold)
         mainStack.addArrangedSubview(copyBtn)
         
-        let b64Btn = NSButton(title: "⚡️ Base64 (⌘B)", target: self, action: #selector(base64Clicked))
+        let b64Btn = NSButton(title: "Base64 (⌘B)", target: self, action: #selector(base64Clicked))
+        b64Btn.image = IconFactory.createBase64Icon()
+        b64Btn.imagePosition = .imageLeading
         b64Btn.bezelStyle = .rounded
         b64Btn.toolTip = "Скопировать как Base64 строку (для передачи через Termius/SSH)"
         b64Btn.font = NSFont.systemFont(ofSize: 12)
         mainStack.addArrangedSubview(b64Btn)
         
-        let ocrBtn = NSButton(title: "🔤 OCR (⌘O)", target: self, action: #selector(ocrClicked))
+        let ocrBtn = NSButton(title: "OCR (⌘O)", target: self, action: #selector(ocrClicked))
+        ocrBtn.image = IconFactory.createOCRIcon()
+        ocrBtn.imagePosition = .imageLeading
         ocrBtn.bezelStyle = .rounded
         ocrBtn.toolTip = "Распознать и скопировать текст со скриншота"
         ocrBtn.font = NSFont.systemFont(ofSize: 12)
         mainStack.addArrangedSubview(ocrBtn)
         
-        let cliBtn = NSButton(title: "📎 CLI Путь (⇧⌘C)", target: self, action: #selector(cliPathClicked))
+        let cliBtn = NSButton(title: "CLI Путь (⇧⌘C)", target: self, action: #selector(cliPathClicked))
+        cliBtn.image = IconFactory.createCLIIcon()
+        cliBtn.imagePosition = .imageLeading
         cliBtn.bezelStyle = .rounded
-        cliBtn.toolTip = "Сохранить файл в папку Загрузки (Downloads) и скопировать абсолютный путь в буфер"
+        cliBtn.toolTip = "Сохранить файл в Загрузки и скопировать абсолютный путь в буфер"
         cliBtn.font = NSFont.systemFont(ofSize: 12)
         mainStack.addArrangedSubview(cliBtn)
         
-        let saveBtn = NSButton(title: "💾", target: self, action: #selector(saveClicked))
+        let saveBtn = NSButton(title: "", target: self, action: #selector(saveClicked))
+        saveBtn.image = IconFactory.createSaveIcon()
+        saveBtn.imagePosition = .imageOnly
         saveBtn.bezelStyle = .rounded
         saveBtn.toolTip = "Сохранить файл в выбранное место (⌘S)"
         saveBtn.font = NSFont.systemFont(ofSize: 12)
+        saveBtn.translatesAutoresizingMaskIntoConstraints = false
+        saveBtn.widthAnchor.constraint(equalToConstant: 28).isActive = true
+        saveBtn.heightAnchor.constraint(equalToConstant: 28).isActive = true
         mainStack.addArrangedSubview(saveBtn)
         
         // Flexible Spacer
@@ -346,19 +372,15 @@ final class ToolbarView: NSVisualEffectView {
     }
     
     // MARK: - Helpers
-    private func createIconButton(iconName: String, tooltip: String) -> NSButton {
+    private func createIconButton(image: NSImage, tooltip: String) -> NSButton {
         let btn = NSButton()
         btn.bezelStyle = .recessed
         btn.isBordered = false
         btn.toolTip = tooltip
         btn.wantsLayer = true
         btn.layer?.cornerRadius = 5
-        if #available(macOS 11.0, *), let img = NSImage(systemSymbolName: iconName, accessibilityDescription: tooltip) {
-            btn.image = img
-            btn.imagePosition = .imageOnly
-        } else {
-            btn.title = tooltip
-        }
+        btn.image = image
+        btn.imagePosition = .imageOnly
         btn.translatesAutoresizingMaskIntoConstraints = false
         btn.widthAnchor.constraint(equalToConstant: 28).isActive = true
         btn.heightAnchor.constraint(equalToConstant: 28).isActive = true
@@ -456,6 +478,10 @@ final class ToolbarView: NSVisualEffectView {
     
     @objc private func pasteClicked() {
         delegate?.toolbarDidClickPaste()
+    }
+    
+    @objc private func aiMaskClicked() {
+        delegate?.toolbarDidClickAIMask()
     }
     
     @objc private func copyClicked() {

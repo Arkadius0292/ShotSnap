@@ -7,19 +7,19 @@ enum ToolType: String, CaseIterable {
     case pen = "Карандаш"
     case highlighter = "Маркер"
     case text = "Текст"
-    case step = "Шаг ❶"
-    case blur = "Размытие"
+    case step = "Шаг"
+    case blur = "Маска"
     
-    var iconName: String {
+    var icon: NSImage {
         switch self {
-        case .select: return "cursorarrow"
-        case .arrow: return "arrow.up.right"
-        case .rect: return "rectangle"
-        case .pen: return "pencil"
-        case .highlighter: return "highlighter"
-        case .text: return "character.cursor.ibeam"
-        case .step: return "1.circle.fill"
-        case .blur: return "theatermasks.fill"
+        case .select: return IconFactory.createSelectIcon()
+        case .arrow: return IconFactory.createArrowIcon()
+        case .rect: return IconFactory.createRectIcon()
+        case .pen: return IconFactory.createPenIcon()
+        case .highlighter: return IconFactory.createHighlighterIcon()
+        case .text: return IconFactory.createTextIcon()
+        case .step: return IconFactory.createStepIcon()
+        case .blur: return IconFactory.createManualMaskIcon()
         }
     }
     
@@ -44,8 +44,8 @@ enum ToolType: String, CaseIterable {
         case .pen: return "Карандаш для рисования от руки (P)"
         case .highlighter: return "Полупрозрачный маркер для текста (H)"
         case .text: return "Текстовый блок с автопереносом (T)"
-        case .step: return "Автонумерованные круглые шаги ❶ ❷ ❸ (S)"
-        case .blur: return "Объективное оптическое размытие фона (B)"
+        case .step: return "Автонумерованные круглые шаги 1, 2, 3... (S)"
+        case .blur: return "Ручная маска: размытие выбранной области (B)"
         }
     }
 }

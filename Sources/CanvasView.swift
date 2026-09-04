@@ -280,6 +280,17 @@ final class CanvasView: NSView, NSTextViewDelegate {
         NSSound(named: "Hero")?.play()
     }
     
+    // MARK: - Batch Annotations (e.g. AI Sensitive Data Redaction)
+    func addAnnotationsWithUndo(_ newAnnotations: [BaseAnnotation]) {
+        guard !newAnnotations.isEmpty else { return }
+        commitActiveTextField()
+        recordUndo()
+        annotations.append(contentsOf: newAnnotations)
+        checkAndExpandCanvasIfNeeded()
+        needsDisplay = true
+        delegate?.canvasDidUpdateAnnotations(self)
+    }
+    
     // MARK: - Undo / Redo
     private func cloneAnnotations(_ list: [BaseAnnotation]) -> [BaseAnnotation] {
         return list.compactMap { $0.copy() as? BaseAnnotation }
