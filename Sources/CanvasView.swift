@@ -4,6 +4,7 @@ protocol CanvasViewDelegate: AnyObject {
     func canvasDidUpdateAnnotations(_ canvas: CanvasView)
     func canvasDidSelectAnnotation(_ annotation: BaseAnnotation?)
     func canvasDidChangeSize(_ canvas: CanvasView, newSize: CGSize)
+    func canvasDidRequestToolChange(_ tool: ToolType)
 }
 
 // MARK: - Custom Multiline Text View for In-place Editing
@@ -361,11 +362,9 @@ final class CanvasView: NSView, NSTextViewDelegate {
                 isDraggingSelection = false
             }
             
-            // Instant text edit mode:
-            // - Double click in ANY tool mode
-            // - OR Single click when Text tool (.text) is currently selected!
+            // Text edit mode on double click (or Enter key)
             if let textAnn = target as? TextAnnotation {
-                if event.clickCount == 2 || currentTool == .text {
+                if event.clickCount == 2 {
                     showTextEditor(for: textAnn)
                     isDraggingSelection = false
                 }
@@ -530,6 +529,9 @@ final class CanvasView: NSView, NSTextViewDelegate {
     }
     
     func showTextEditor(for annotation: TextAnnotation) {
+        if activeTextView != nil {
+            commitActiveTextField()
+        }
         activeTextOrigin = annotation.origin
         activeTextWidth = annotation.width
         activeTextAnnotation = annotation
@@ -540,7 +542,9 @@ final class CanvasView: NSView, NSTextViewDelegate {
     }
     
     private func createInPlaceTextView(frame: CGRect, initialText: String) {
-        commitActiveTextField()
+        if activeTextView != nil {
+            commitActiveTextField()
+        }
         
         let scrollView = NSScrollView(frame: frame)
         scrollView.hasVerticalScroller = false
@@ -596,6 +600,8 @@ final class CanvasView: NSView, NSTextViewDelegate {
         guard let tv = activeTextView, let sv = activeTextScrollView else { return }
         let text = tv.string.trimmingCharacters(in: .whitespacesAndNewlines)
         
+        let isNew = (activeTextAnnotation == nil)
+        
         if let existing = activeTextAnnotation {
             if text.isEmpty {
                 recordUndo()
@@ -616,12 +622,17 @@ final class CanvasView: NSView, NSTextViewDelegate {
                 fontSize: currentFontSize
             )
             annotations.append(annotation)
+            selectAnnotation(annotation)
         }
         
         sv.removeFromSuperview()
         activeTextScrollView = nil
         activeTextView = nil
         activeTextAnnotation = nil
+        
+        if isNew && !text.isEmpty {
+            delegate?.canvasDidRequestToolChange(.select)
+        }
         
         checkAndExpandCanvasIfNeeded()
         needsDisplay = true

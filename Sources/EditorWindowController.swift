@@ -392,6 +392,11 @@ final class EditorWindowController: NSWindowController, ToolbarViewDelegate, Can
         }
     }
     
+    func canvasDidRequestToolChange(_ tool: ToolType) {
+        toolbarView.selectTool(tool)
+        canvasView.currentTool = tool
+    }
+    
     // MARK: - Execution Actions
     private func performCopy() {
         canvasView.commitActiveTextField()
