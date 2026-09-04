@@ -4,52 +4,65 @@ final class IconFactory {
     
     // MARK: - Tool Vector Icons
     static func createSelectIcon() -> NSImage {
+        // 4-Way Move Crosshair (Перекрестье перемещения и выбора)
         return createTemplateImage(size: CGSize(width: 18, height: 18)) { ctx in
             ctx.saveGState()
             ctx.setLineWidth(1.6)
             ctx.setLineCap(.round)
             ctx.setLineJoin(.round)
             
-            let path = CGMutablePath()
-            path.move(to: CGPoint(x: 3.5, y: 15.0))
-            path.addLine(to: CGPoint(x: 3.5, y: 3.5))
-            path.addLine(to: CGPoint(x: 11.5, y: 11.0))
-            path.addLine(to: CGPoint(x: 7.5, y: 11.0))
-            path.addLine(to: CGPoint(x: 10.5, y: 16.0))
-            path.addLine(to: CGPoint(x: 8.5, y: 17.0))
-            path.addLine(to: CGPoint(x: 5.5, y: 12.0))
-            path.closeSubpath()
+            // Оси перекрестья
+            ctx.beginPath()
+            ctx.move(to: CGPoint(x: 9.0, y: 2.2))
+            ctx.addLine(to: CGPoint(x: 9.0, y: 15.8))
+            ctx.move(to: CGPoint(x: 2.2, y: 9.0))
+            ctx.addLine(to: CGPoint(x: 15.8, y: 9.0))
+            ctx.strokePath()
             
-            ctx.addPath(path)
-            ctx.setFillColor(NSColor.black.cgColor)
-            ctx.fillPath()
+            // 4 стрелки на концах осей
+            ctx.beginPath()
+            // Вверх
+            ctx.move(to: CGPoint(x: 6.8, y: 13.5))
+            ctx.addLine(to: CGPoint(x: 9.0, y: 16.5))
+            ctx.addLine(to: CGPoint(x: 11.2, y: 13.5))
+            // Вниз
+            ctx.move(to: CGPoint(x: 6.8, y: 4.5))
+            ctx.addLine(to: CGPoint(x: 9.0, y: 1.5))
+            ctx.addLine(to: CGPoint(x: 11.2, y: 4.5))
+            // Влево
+            ctx.move(to: CGPoint(x: 4.5, y: 11.2))
+            ctx.addLine(to: CGPoint(x: 1.5, y: 9.0))
+            ctx.addLine(to: CGPoint(x: 4.5, y: 6.8))
+            // Вправо
+            ctx.move(to: CGPoint(x: 13.5, y: 11.2))
+            ctx.addLine(to: CGPoint(x: 16.5, y: 9.0))
+            ctx.addLine(to: CGPoint(x: 13.5, y: 6.8))
+            ctx.strokePath()
+            
             ctx.restoreGState()
         }
     }
     
     static func createArrowIcon() -> NSImage {
+        // Классическая прямая диагональная стрелка 45°
         return createTemplateImage(size: CGSize(width: 18, height: 18)) { ctx in
             ctx.saveGState()
             ctx.setLineWidth(1.8)
             ctx.setLineCap(.round)
             ctx.setLineJoin(.round)
             
-            // Curved arrow body
+            // Прямой диагональный стержень
             ctx.beginPath()
-            ctx.move(to: CGPoint(x: 3.0, y: 4.0))
-            ctx.addQuadCurve(to: CGPoint(x: 14.5, y: 14.5), control: CGPoint(x: 4.5, y: 13.5))
+            ctx.move(to: CGPoint(x: 3.5, y: 3.5))
+            ctx.addLine(to: CGPoint(x: 14.5, y: 14.5))
             ctx.strokePath()
             
-            // Arrowhead
-            let head = CGMutablePath()
-            head.move(to: CGPoint(x: 15.5, y: 15.5))
-            head.addLine(to: CGPoint(x: 9.5, y: 14.5))
-            head.addLine(to: CGPoint(x: 12.0, y: 12.0))
-            head.addLine(to: CGPoint(x: 14.5, y: 9.5))
-            head.closeSubpath()
-            ctx.addPath(head)
-            ctx.setFillColor(NSColor.black.cgColor)
-            ctx.fillPath()
+            // Симметричное острое оперение
+            ctx.beginPath()
+            ctx.move(to: CGPoint(x: 8.5, y: 14.5))
+            ctx.addLine(to: CGPoint(x: 15.0, y: 15.0))
+            ctx.addLine(to: CGPoint(x: 14.5, y: 8.5))
+            ctx.strokePath()
             
             ctx.restoreGState()
         }
@@ -68,60 +81,81 @@ final class IconFactory {
     }
     
     static func createPenIcon() -> NSImage {
+        // Художественная кисть (ворсистый кончик, обойма, черенок)
         return createTemplateImage(size: CGSize(width: 18, height: 18)) { ctx in
             ctx.saveGState()
-            ctx.setLineWidth(1.6)
+            ctx.setLineWidth(1.5)
             ctx.setLineCap(.round)
             ctx.setLineJoin(.round)
             
-            let path = CGMutablePath()
-            path.move(to: CGPoint(x: 2.5, y: 2.5))
-            path.addLine(to: CGPoint(x: 5.5, y: 3.0))
-            path.addLine(to: CGPoint(x: 14.5, y: 12.0))
-            path.addLine(to: CGPoint(x: 12.0, y: 14.5))
-            path.addLine(to: CGPoint(x: 3.0, y: 5.5))
-            path.closeSubpath()
+            // 1. Ворс кисти
+            let bristle = CGMutablePath()
+            bristle.move(to: CGPoint(x: 2.0, y: 2.0))
+            bristle.addQuadCurve(to: CGPoint(x: 7.2, y: 8.8), control: CGPoint(x: 2.0, y: 6.2))
+            bristle.addLine(to: CGPoint(x: 8.8, y: 7.2))
+            bristle.addQuadCurve(to: CGPoint(x: 2.0, y: 2.0), control: CGPoint(x: 6.2, y: 2.0))
+            bristle.closeSubpath()
+            ctx.addPath(bristle)
+            ctx.fillPath()
             
-            ctx.addPath(path)
+            // 2. Металлическая обойма
+            let ferrule = CGMutablePath()
+            ferrule.move(to: CGPoint(x: 6.8, y: 9.2))
+            ferrule.addLine(to: CGPoint(x: 10.2, y: 12.6))
+            ferrule.addLine(to: CGPoint(x: 11.6, y: 11.2))
+            ferrule.addLine(to: CGPoint(x: 8.2, y: 7.8))
+            ferrule.closeSubpath()
+            ctx.addPath(ferrule)
             ctx.strokePath()
             
-            // Nib point
-            ctx.beginPath()
-            ctx.move(to: CGPoint(x: 2.5, y: 2.5))
-            ctx.addLine(to: CGPoint(x: 4.0, y: 4.0))
-            ctx.strokePath()
+            // 3. Деревянный черенок
+            let handle = CGMutablePath()
+            handle.move(to: CGPoint(x: 10.2, y: 12.6))
+            handle.addLine(to: CGPoint(x: 15.0, y: 16.5))
+            handle.addQuadCurve(to: CGPoint(x: 16.5, y: 15.0), control: CGPoint(x: 16.5, y: 16.5))
+            handle.addLine(to: CGPoint(x: 11.6, y: 11.2))
+            handle.closeSubpath()
+            ctx.addPath(handle)
+            ctx.fillPath()
             
             ctx.restoreGState()
         }
     }
     
     static func createHighlighterIcon() -> NSImage {
+        // Скошенный маркер с выделительной черточкой
         return createTemplateImage(size: CGSize(width: 18, height: 18)) { ctx in
             ctx.saveGState()
-            ctx.setLineWidth(1.6)
+            ctx.setLineWidth(1.4)
             ctx.setLineCap(.round)
             ctx.setLineJoin(.round)
             
-            // Marker body
+            // Корпус маркера
             let body = CGMutablePath()
-            body.move(to: CGPoint(x: 4.5, y: 6.5))
-            body.addLine(to: CGPoint(x: 12.0, y: 14.0))
-            body.addLine(to: CGPoint(x: 15.0, y: 11.0))
-            body.addLine(to: CGPoint(x: 7.5, y: 3.5))
+            body.move(to: CGPoint(x: 5.8, y: 8.8))
+            body.addLine(to: CGPoint(x: 11.5, y: 14.5))
+            body.addLine(to: CGPoint(x: 14.5, y: 11.5))
+            body.addLine(to: CGPoint(x: 8.8, y: 5.8))
             body.closeSubpath()
             ctx.addPath(body)
             ctx.strokePath()
             
-            // Chisel tip
+            // Скошенное перо
             let tip = CGMutablePath()
-            tip.move(to: CGPoint(x: 4.5, y: 6.5))
-            tip.addLine(to: CGPoint(x: 2.0, y: 3.5))
-            tip.addLine(to: CGPoint(x: 5.0, y: 2.0))
-            tip.addLine(to: CGPoint(x: 7.5, y: 3.5))
+            tip.move(to: CGPoint(x: 5.8, y: 8.8))
+            tip.addLine(to: CGPoint(x: 4.0, y: 7.0))
+            tip.addLine(to: CGPoint(x: 7.0, y: 5.0))
+            tip.addLine(to: CGPoint(x: 8.8, y: 5.8))
             tip.closeSubpath()
             ctx.addPath(tip)
-            ctx.setFillColor(NSColor.black.cgColor)
             ctx.fillPath()
+            
+            // Выделительная черточка снизу
+            ctx.setLineWidth(2.4)
+            ctx.beginPath()
+            ctx.move(to: CGPoint(x: 2.0, y: 2.5))
+            ctx.addLine(to: CGPoint(x: 16.0, y: 2.5))
+            ctx.strokePath()
             
             ctx.restoreGState()
         }
@@ -213,62 +247,57 @@ final class IconFactory {
         }
     }
     
-    // MARK: - Mask 2: AI Smart Redact Mask (AI-Автомаска с искрами)
+    // MARK: - Mask 2: AI Smart Redact Mask (Монохромная AI-Маска с буквами AI)
     static func createAIMaskIcon() -> NSImage {
-        // High-end vivid gradient icon for AI Mask
-        let size = CGSize(width: 22, height: 20)
-        let img = NSImage(size: size, flipped: false) { bounds in
-            guard let ctx = NSGraphicsContext.current?.cgContext else { return false }
+        return createTemplateImage(size: CGSize(width: 20, height: 18)) { ctx in
             ctx.saveGState()
-            
-            // Vivid Cyan -> Violet gradient stroke for mask
-            let mask = CGMutablePath()
-            mask.move(to: CGPoint(x: 2.0, y: 11.0))
-            mask.addQuadCurve(to: CGPoint(x: 10.5, y: 14.5), control: CGPoint(x: 5.5, y: 15.0))
-            mask.addQuadCurve(to: CGPoint(x: 17.5, y: 11.0), control: CGPoint(x: 14.5, y: 15.0))
-            mask.addQuadCurve(to: CGPoint(x: 15.5, y: 5.5), control: CGPoint(x: 18.0, y: 7.5))
-            mask.addQuadCurve(to: CGPoint(x: 10.5, y: 8.0), control: CGPoint(x: 13.0, y: 5.0))
-            mask.addQuadCurve(to: CGPoint(x: 4.0, y: 5.5), control: CGPoint(x: 7.0, y: 5.0))
-            mask.addQuadCurve(to: CGPoint(x: 2.0, y: 11.0), control: CGPoint(x: 1.5, y: 7.5))
-            mask.closeSubpath()
-            
             ctx.setLineWidth(1.6)
-            ctx.setStrokeColor(NSColor(red: 0.10, green: 0.85, blue: 1.0, alpha: 1.0).cgColor)
+            ctx.setLineCap(.round)
+            ctx.setLineJoin(.round)
+            
+            // Единый силуэт венецианской маски
+            let mask = CGMutablePath()
+            mask.move(to: CGPoint(x: 1.5, y: 11.0))
+            mask.addQuadCurve(to: CGPoint(x: 10.0, y: 15.0), control: CGPoint(x: 5.0, y: 15.5))
+            mask.addQuadCurve(to: CGPoint(x: 18.5, y: 11.0), control: CGPoint(x: 15.0, y: 15.5))
+            mask.addQuadCurve(to: CGPoint(x: 16.5, y: 5.0), control: CGPoint(x: 19.0, y: 7.0))
+            mask.addQuadCurve(to: CGPoint(x: 10.0, y: 8.0), control: CGPoint(x: 13.5, y: 4.5))
+            mask.addQuadCurve(to: CGPoint(x: 3.5, y: 5.0), control: CGPoint(x: 6.5, y: 4.5))
+            mask.addQuadCurve(to: CGPoint(x: 1.5, y: 11.0), control: CGPoint(x: 1.0, y: 7.0))
+            mask.closeSubpath()
             ctx.addPath(mask)
             ctx.strokePath()
             
-            // Eye cutouts with glowing cyan
-            ctx.setFillColor(NSColor(red: 0.10, green: 0.85, blue: 1.0, alpha: 0.9).cgColor)
-            ctx.fillEllipse(in: CGRect(x: 4.5, y: 8.5, width: 3.5, height: 2.5))
-            ctx.fillEllipse(in: CGRect(x: 12.0, y: 8.5, width: 3.5, height: 2.5))
-            
-            // Sparkle 1 (Top-right corner AI Star)
-            let starCenter = CGPoint(x: 18.0, y: 15.5)
-            let starPath = CGMutablePath()
-            starPath.move(to: CGPoint(x: starCenter.x, y: starCenter.y + 4.0))
-            starPath.addQuadCurve(to: CGPoint(x: starCenter.x + 3.5, y: starCenter.y), control: CGPoint(x: starCenter.x + 0.5, y: starCenter.y + 0.5))
-            starPath.addQuadCurve(to: CGPoint(x: starCenter.x, y: starCenter.y - 4.0), control: CGPoint(x: starCenter.x + 0.5, y: starCenter.y - 0.5))
-            starPath.addQuadCurve(to: CGPoint(x: starCenter.x - 3.5, y: starCenter.y), control: CGPoint(x: starCenter.x - 0.5, y: starCenter.y - 0.5))
-            starPath.addQuadCurve(to: CGPoint(x: starCenter.x, y: starCenter.y + 4.0), control: CGPoint(x: starCenter.x - 0.5, y: starCenter.y + 0.5))
-            starPath.closeSubpath()
-            
-            ctx.setFillColor(NSColor(red: 1.0, green: 0.45, blue: 0.95, alpha: 1.0).cgColor)
-            ctx.addPath(starPath)
+            // Глазки
+            let leftEye = CGMutablePath()
+            leftEye.addEllipse(in: CGRect(x: 3.8, y: 8.2, width: 3.5, height: 2.5))
+            ctx.addPath(leftEye)
+            ctx.setFillColor(NSColor.black.cgColor)
             ctx.fillPath()
             
-            // AI Tiny Badge at bottom right
-            let font = NSFont.systemFont(ofSize: 7.0, weight: .black)
+            let rightEye = CGMutablePath()
+            rightEye.addEllipse(in: CGRect(x: 12.7, y: 8.2, width: 3.5, height: 2.5))
+            ctx.addPath(rightEye)
+            ctx.setFillColor(NSColor.black.cgColor)
+            ctx.fillPath()
+            
+            // Четкие буквы AI по центру переносицы
+            let font = NSFont.systemFont(ofSize: 7.2, weight: .black)
             let attr: [NSAttributedString.Key: Any] = [
                 .font: font,
-                .foregroundColor: NSColor(red: 0.20, green: 0.90, blue: 1.0, alpha: 1.0)
+                .foregroundColor: NSColor.black
             ]
             let str = NSAttributedString(string: "AI", attributes: attr)
-            str.draw(at: CGPoint(x: 13.0, y: 1.0))
+            let sz = str.size()
+            
+            NSGraphicsContext.saveGraphicsState()
+            let nsCtx = NSGraphicsContext(cgContext: ctx, flipped: false)
+            NSGraphicsContext.current = nsCtx
+            str.draw(at: CGPoint(x: (20.0 - sz.width) / 2.0, y: 6.8))
+            NSGraphicsContext.restoreGraphicsState()
             
             ctx.restoreGState()
-            return true
         }
-        return img
     }
     
     // MARK: - Action Button Icons (Clean vector graphics)
