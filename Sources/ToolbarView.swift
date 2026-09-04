@@ -198,10 +198,12 @@ final class ToolbarView: NSVisualEffectView {
     }
     
     private func setupUI() {
-        material = .titlebar
+        appearance = NSAppearance(named: .darkAqua)
+        material = .hudWindow
         blendingMode = .withinWindow
         state = .active
         wantsLayer = true
+        layer?.backgroundColor = NSColor(red: 0.11, green: 0.12, blue: 0.16, alpha: 0.96).cgColor
         
         let bottomBorder = CALayer()
         bottomBorder.backgroundColor = NSColor.white.withAlphaComponent(0.12).cgColor
@@ -210,8 +212,8 @@ final class ToolbarView: NSVisualEffectView {
         
         let mainStack = NSStackView()
         mainStack.orientation = .horizontal
-        mainStack.spacing = 8
-        mainStack.edgeInsets = NSEdgeInsets(top: 6, left: 12, bottom: 6, right: 12)
+        mainStack.spacing = 6
+        mainStack.edgeInsets = NSEdgeInsets(top: 7, left: 12, bottom: 7, right: 12)
         mainStack.translatesAutoresizingMaskIntoConstraints = false
         addSubview(mainStack)
         
@@ -222,10 +224,10 @@ final class ToolbarView: NSVisualEffectView {
             mainStack.trailingAnchor.constraint(equalTo: trailingAnchor)
         ])
         
-        // 1. Tool Buttons
+        // 1. Tool Buttons (Tactile 32x32 Square Tiles)
         let toolStack = NSStackView()
         toolStack.orientation = .horizontal
-        toolStack.spacing = 3
+        toolStack.spacing = 4
         
         for tool in ToolType.allCases {
             let btn = createIconButton(image: tool.icon, tooltip: tool.description)
@@ -242,7 +244,7 @@ final class ToolbarView: NSVisualEffectView {
         // 2. Color Palette
         let colorStack = NSStackView()
         colorStack.orientation = .horizontal
-        colorStack.spacing = 4
+        colorStack.spacing = 5
         
         for (name, color) in availableColors {
             let btn = createColorButton(color: color, tooltip: name)
@@ -265,13 +267,17 @@ final class ToolbarView: NSVisualEffectView {
             let btn = NSButton(title: preset.symbol, target: self, action: #selector(sizeButtonClicked(_:)))
             btn.bezelStyle = .recessed
             btn.isBordered = false
-            btn.font = NSFont.systemFont(ofSize: 14)
+            btn.font = NSFont.systemFont(ofSize: 14, weight: .bold)
             btn.toolTip = "Масштаб: \(preset.name) (толщина линий, размер шагов и шрифта)"
             btn.wantsLayer = true
-            btn.layer?.cornerRadius = 5
+            btn.layer?.cornerRadius = 6
+            btn.layer?.backgroundColor = NSColor(white: 1.0, alpha: 0.09).cgColor
+            btn.layer?.borderWidth = 1.0
+            btn.layer?.borderColor = NSColor(white: 1.0, alpha: 0.18).cgColor
+            btn.contentTintColor = .white
             btn.translatesAutoresizingMaskIntoConstraints = false
-            btn.widthAnchor.constraint(equalToConstant: 24).isActive = true
-            btn.heightAnchor.constraint(equalToConstant: 28).isActive = true
+            btn.widthAnchor.constraint(equalToConstant: 26).isActive = true
+            btn.heightAnchor.constraint(equalToConstant: 32).isActive = true
             sizeButtons.append((preset, btn))
             sizeStack.addArrangedSubview(btn)
         }
@@ -280,7 +286,7 @@ final class ToolbarView: NSVisualEffectView {
         // Separator
         mainStack.addArrangedSubview(createSeparator())
         
-        // 4. Undo & Paste Buttons
+        // 4. Undo & Paste Square Buttons
         let undoBtn = createIconButton(image: IconFactory.createUndoIcon(), tooltip: "Отменить (⌘Z)")
         undoBtn.target = self
         undoBtn.action = #selector(undoClicked)
@@ -300,8 +306,22 @@ final class ToolbarView: NSVisualEffectView {
         aiMaskBtn.imagePosition = .imageLeading
         aiMaskBtn.imageScaling = .scaleProportionallyDown
         aiMaskBtn.bezelStyle = .rounded
+        aiMaskBtn.isBordered = false
+        aiMaskBtn.wantsLayer = true
+        aiMaskBtn.layer?.cornerRadius = 7
+        aiMaskBtn.layer?.backgroundColor = NSColor(red: 0.30, green: 0.15, blue: 0.50, alpha: 0.80).cgColor
+        aiMaskBtn.layer?.borderWidth = 1.2
+        aiMaskBtn.layer?.borderColor = NSColor(red: 0.65, green: 0.35, blue: 0.95, alpha: 0.70).cgColor
+        aiMaskBtn.attributedTitle = NSAttributedString(
+            string: "AI Маска",
+            attributes: [
+                .foregroundColor: NSColor.white,
+                .font: NSFont.systemFont(ofSize: 12, weight: .bold)
+            ]
+        )
         aiMaskBtn.toolTip = "AI-Автомаска: найти и скрыть пароли, ключи, токены и ПДн (⌘D)"
-        aiMaskBtn.font = NSFont.systemFont(ofSize: 12, weight: .semibold)
+        aiMaskBtn.translatesAutoresizingMaskIntoConstraints = false
+        aiMaskBtn.heightAnchor.constraint(equalToConstant: 32).isActive = true
         mainStack.addArrangedSubview(aiMaskBtn)
         
         // Separator
@@ -313,7 +333,12 @@ final class ToolbarView: NSVisualEffectView {
         copyBtn.imagePosition = .imageLeading
         copyBtn.imageScaling = .scaleProportionallyDown
         copyBtn.bezelStyle = .rounded
+        copyBtn.isBordered = false
         copyBtn.wantsLayer = true
+        copyBtn.layer?.cornerRadius = 7
+        copyBtn.layer?.backgroundColor = NSColor(red: 0.14, green: 0.68, blue: 0.38, alpha: 1.0).cgColor
+        copyBtn.layer?.borderWidth = 1.0
+        copyBtn.layer?.borderColor = NSColor.white.withAlphaComponent(0.25).cgColor
         copyBtn.attributedTitle = NSAttributedString(
             string: "Скопировать (⏎)",
             attributes: [
@@ -321,8 +346,8 @@ final class ToolbarView: NSVisualEffectView {
                 .font: NSFont.systemFont(ofSize: 12, weight: .bold)
             ]
         )
-        copyBtn.layer?.backgroundColor = NSColor(red: 0.15, green: 0.65, blue: 0.35, alpha: 1.0).cgColor
-        copyBtn.layer?.cornerRadius = 6
+        copyBtn.translatesAutoresizingMaskIntoConstraints = false
+        copyBtn.heightAnchor.constraint(equalToConstant: 32).isActive = true
         mainStack.addArrangedSubview(copyBtn)
         
         let b64Btn = NSButton(title: "Base64 (⌘B)", target: self, action: #selector(base64Clicked))
@@ -330,8 +355,22 @@ final class ToolbarView: NSVisualEffectView {
         b64Btn.imagePosition = .imageLeading
         b64Btn.imageScaling = .scaleProportionallyDown
         b64Btn.bezelStyle = .rounded
+        b64Btn.isBordered = false
+        b64Btn.wantsLayer = true
+        b64Btn.layer?.cornerRadius = 7
+        b64Btn.layer?.backgroundColor = NSColor(white: 1.0, alpha: 0.09).cgColor
+        b64Btn.layer?.borderWidth = 1.0
+        b64Btn.layer?.borderColor = NSColor(white: 1.0, alpha: 0.18).cgColor
+        b64Btn.attributedTitle = NSAttributedString(
+            string: "Base64 (⌘B)",
+            attributes: [
+                .foregroundColor: NSColor.white,
+                .font: NSFont.systemFont(ofSize: 12, weight: .semibold)
+            ]
+        )
         b64Btn.toolTip = "Скопировать как Base64 строку (для передачи через Termius/SSH)"
-        b64Btn.font = NSFont.systemFont(ofSize: 12)
+        b64Btn.translatesAutoresizingMaskIntoConstraints = false
+        b64Btn.heightAnchor.constraint(equalToConstant: 32).isActive = true
         mainStack.addArrangedSubview(b64Btn)
         
         let ocrBtn = NSButton(title: "OCR (⌘O)", target: self, action: #selector(ocrClicked))
@@ -339,8 +378,22 @@ final class ToolbarView: NSVisualEffectView {
         ocrBtn.imagePosition = .imageLeading
         ocrBtn.imageScaling = .scaleProportionallyDown
         ocrBtn.bezelStyle = .rounded
+        ocrBtn.isBordered = false
+        ocrBtn.wantsLayer = true
+        ocrBtn.layer?.cornerRadius = 7
+        ocrBtn.layer?.backgroundColor = NSColor(white: 1.0, alpha: 0.09).cgColor
+        ocrBtn.layer?.borderWidth = 1.0
+        ocrBtn.layer?.borderColor = NSColor(white: 1.0, alpha: 0.18).cgColor
+        ocrBtn.attributedTitle = NSAttributedString(
+            string: "OCR (⌘O)",
+            attributes: [
+                .foregroundColor: NSColor.white,
+                .font: NSFont.systemFont(ofSize: 12, weight: .semibold)
+            ]
+        )
         ocrBtn.toolTip = "Распознать и скопировать текст со скриншота"
-        ocrBtn.font = NSFont.systemFont(ofSize: 12)
+        ocrBtn.translatesAutoresizingMaskIntoConstraints = false
+        ocrBtn.heightAnchor.constraint(equalToConstant: 32).isActive = true
         mainStack.addArrangedSubview(ocrBtn)
         
         let cliBtn = NSButton(title: "CLI Путь (⇧⌘C)", target: self, action: #selector(cliPathClicked))
@@ -348,20 +401,27 @@ final class ToolbarView: NSVisualEffectView {
         cliBtn.imagePosition = .imageLeading
         cliBtn.imageScaling = .scaleProportionallyDown
         cliBtn.bezelStyle = .rounded
+        cliBtn.isBordered = false
+        cliBtn.wantsLayer = true
+        cliBtn.layer?.cornerRadius = 7
+        cliBtn.layer?.backgroundColor = NSColor(white: 1.0, alpha: 0.09).cgColor
+        cliBtn.layer?.borderWidth = 1.0
+        cliBtn.layer?.borderColor = NSColor(white: 1.0, alpha: 0.18).cgColor
+        cliBtn.attributedTitle = NSAttributedString(
+            string: "CLI Путь (⇧⌘C)",
+            attributes: [
+                .foregroundColor: NSColor.white,
+                .font: NSFont.systemFont(ofSize: 12, weight: .semibold)
+            ]
+        )
         cliBtn.toolTip = "Сохранить файл в Загрузки и скопировать абсолютный путь в буфер"
-        cliBtn.font = NSFont.systemFont(ofSize: 12)
+        cliBtn.translatesAutoresizingMaskIntoConstraints = false
+        cliBtn.heightAnchor.constraint(equalToConstant: 32).isActive = true
         mainStack.addArrangedSubview(cliBtn)
         
-        let saveBtn = NSButton(title: "", target: self, action: #selector(saveClicked))
-        saveBtn.image = IconFactory.createSaveIcon()
-        saveBtn.imagePosition = .imageOnly
-        saveBtn.imageScaling = .scaleProportionallyDown
-        saveBtn.bezelStyle = .rounded
-        saveBtn.toolTip = "Сохранить файл в выбранное место (⌘S)"
-        saveBtn.font = NSFont.systemFont(ofSize: 12)
-        saveBtn.translatesAutoresizingMaskIntoConstraints = false
-        saveBtn.widthAnchor.constraint(equalToConstant: 28).isActive = true
-        saveBtn.heightAnchor.constraint(equalToConstant: 28).isActive = true
+        let saveBtn = createIconButton(image: IconFactory.createSaveIcon(), tooltip: "Сохранить файл в выбранное место (⌘S)")
+        saveBtn.target = self
+        saveBtn.action = #selector(saveClicked)
         mainStack.addArrangedSubview(saveBtn)
         
         // Flexible Spacer
@@ -389,13 +449,16 @@ final class ToolbarView: NSVisualEffectView {
         btn.isBordered = false
         btn.toolTip = tooltip
         btn.wantsLayer = true
-        btn.layer?.cornerRadius = 5
+        btn.layer?.cornerRadius = 7
+        btn.layer?.backgroundColor = NSColor(white: 1.0, alpha: 0.09).cgColor
+        btn.layer?.borderWidth = 1.0
+        btn.layer?.borderColor = NSColor(white: 1.0, alpha: 0.18).cgColor
         btn.image = image
         btn.imagePosition = .imageOnly
         btn.imageScaling = .scaleProportionallyDown
         btn.translatesAutoresizingMaskIntoConstraints = false
-        btn.widthAnchor.constraint(equalToConstant: 28).isActive = true
-        btn.heightAnchor.constraint(equalToConstant: 28).isActive = true
+        btn.widthAnchor.constraint(equalToConstant: 32).isActive = true
+        btn.heightAnchor.constraint(equalToConstant: 32).isActive = true
         return btn
     }
     
@@ -418,9 +481,12 @@ final class ToolbarView: NSVisualEffectView {
     
     private func createSeparator() -> NSView {
         let box = NSBox()
-        box.boxType = .separator
+        box.boxType = .custom
+        box.borderWidth = 0
+        box.fillColor = NSColor.white.withAlphaComponent(0.15)
         box.translatesAutoresizingMaskIntoConstraints = false
         box.widthAnchor.constraint(equalToConstant: 1).isActive = true
+        box.heightAnchor.constraint(equalToConstant: 22).isActive = true
         return box
     }
     
@@ -428,9 +494,17 @@ final class ToolbarView: NSVisualEffectView {
     func selectTool(_ tool: ToolType) {
         for (t, btn) in toolButtons {
             let isSelected = (t == tool)
-            btn.layer?.backgroundColor = isSelected ? NSColor.white.withAlphaComponent(0.25).cgColor : NSColor.clear.cgColor
-            btn.layer?.borderWidth = isSelected ? 1.0 : 0.0
-            btn.layer?.borderColor = NSColor.white.withAlphaComponent(0.6).cgColor
+            btn.layer?.backgroundColor = isSelected ? NSColor(red: 0.10, green: 0.50, blue: 0.95, alpha: 0.35).cgColor : NSColor(white: 1.0, alpha: 0.09).cgColor
+            btn.layer?.borderWidth = isSelected ? 2.0 : 1.0
+            btn.layer?.borderColor = isSelected ? NSColor(red: 0.20, green: 0.85, blue: 1.0, alpha: 1.0).cgColor : NSColor(white: 1.0, alpha: 0.18).cgColor
+            if isSelected {
+                btn.layer?.shadowColor = NSColor(red: 0.1, green: 0.8, blue: 1.0, alpha: 0.8).cgColor
+                btn.layer?.shadowOpacity = 0.8
+                btn.layer?.shadowRadius = 4.0
+                btn.layer?.shadowOffset = .zero
+            } else {
+                btn.layer?.shadowOpacity = 0.0
+            }
         }
     }
     
@@ -448,7 +522,9 @@ final class ToolbarView: NSVisualEffectView {
     func selectSizePreset(_ preset: SizePreset) {
         for (idx, (p, btn)) in sizeButtons.enumerated() {
             let isSelected = (p.lineWidth == preset.lineWidth)
-            btn.layer?.backgroundColor = isSelected ? NSColor.white.withAlphaComponent(0.25).cgColor : NSColor.clear.cgColor
+            btn.layer?.backgroundColor = isSelected ? NSColor.white.withAlphaComponent(0.28).cgColor : NSColor(white: 1.0, alpha: 0.09).cgColor
+            btn.layer?.borderWidth = isSelected ? 1.5 : 1.0
+            btn.layer?.borderColor = isSelected ? NSColor.white.cgColor : NSColor(white: 1.0, alpha: 0.18).cgColor
             if isSelected {
                 PreferencesManager.shared.savedSizeIndex = idx
             }

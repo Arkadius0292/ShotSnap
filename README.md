@@ -7,7 +7,7 @@
 [![macOS](https://img.shields.io/badge/macOS-11.0%2B-black?style=for-the-badge&logo=apple)](https://apple.com)
 [![Swift](https://img.shields.io/badge/Swift-6.0-F05138?style=for-the-badge&logo=swift&logoColor=white)](https://swift.org)
 [![Architecture](https://img.shields.io/badge/Arch-Apple_Silicon_%7C_Intel-007AFF?style=for-the-badge)](https://apple.com)
-[![Release](https://img.shields.io/badge/Release-v1.3.0-blue?style=for-the-badge)](https://github.com/Arkadius0292/ShotSnap/releases)
+[![Release](https://img.shields.io/badge/Release-v1.3.1-blue?style=for-the-badge)](https://github.com/Arkadius0292/ShotSnap/releases)
 [![Developer](https://img.shields.io/badge/Made_by-KULESH.PRO-0CE8FF?style=for-the-badge)](https://kulesh.pro)
 [![License](https://img.shields.io/badge/License-CC_BY--ND_4.0_%2B_Custom-green?style=for-the-badge)](LICENSE)
 
@@ -183,6 +183,18 @@ ShotSnap/
   - **AI Маска (`⌘D`)**: венецианская маска с золотыми объемными светящимися буквами «AI» для умного автоматического скрытия ПДн и секретов.
   - **Кнопки действий**: синяя изогнутая стрелка отмены (`Undo`), деревянный планшет с листом (`Paste`), зеленый пузатый бадж с белой галочкой (`Copy`), фиолетовые фигурные скобки `{Base64}`, документ с лазерным лучом сканирования (`OCR`), консольный бокс с подсказкой `>_` (`CLI`), классическая синяя 3.5" дискета (`Save`).
   - Все иконки интегрированы в бандл `ShotSnap.app/Contents/Resources/Icons/` в высоком разрешении Retina с плавной полупрозрачной отсечкой фона и отсутствием темных артефактов.
+
+### [v1.3.1](https://github.com/Arkadius0292/ShotSnap/releases/tag/v1.3.1) — *04 сентября 2026*
+- 🎨 **Объемные 3D Claymorphic иконки с максимальной контрастностью:**
+  - Все пиктограммы инструментов и кнопок переведены в стильный пузатенький 3D-формат с мягкими тенями, световыми бликами и повышенной сочностью (+25% насыщенности, +15% контраста).
+  - Инструмент выделения получил интуитивную объемную пиктограмму 4-лучевого навигационного перекрестья.
+- 🔲 **Тактильные квадратные кнопки (Square Keycaps):**
+  - Кнопки инструментов и действий оформлены в виде аккуратных скругленных квадратов (32x32 pt) с подложкой из темного стекла и деликатной обводкой.
+  - Активный инструмент подсвечивается неоновым бирюзовым контуром (Electric Cyan Glow), делая текущий режим безошибочно читаемым.
+- 🪟 **Pro Dark HUD Toolbar:**
+  - Панель инструментов переведена на принудительный темный режим (`.darkAqua` + `.hudWindow`), обеспечивая безупречный контраст и яркость 3D-иконок независимо от системной темы macOS.
+- 🤖 **Полностью перерисованная иконка AI-Маски:**
+  - Яркая 3D-маска в оттенках индиго и фиолетового с неоновыми светящимися прорезями для глаз, четкой крупной 3D-надписью «AI» на переносице и искрами магии. Вторая ручная маска оформлена в гармоничном сапфирово-синем стиле.
 
 ### [v1.2.0](https://github.com/Arkadius0292/ShotSnap/releases/tag/v1.2.0) — *04 сентября 2026*
 - 🎨 **100% Векторная графика (CoreGraphics / AppKit):**

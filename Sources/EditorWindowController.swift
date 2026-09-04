@@ -7,7 +7,7 @@ final class EditorWindowController: NSWindowController, ToolbarViewDelegate, Can
     
     var onWindowDidClose: (() -> Void)?
     
-    static let toolbarHeight: CGFloat = 44.0
+    static let toolbarHeight: CGFloat = 48.0
     static let minToolbarWidth: CGFloat = 880.0
     
     convenience init(image: NSImage, targetScreen: NSScreen? = nil) {
