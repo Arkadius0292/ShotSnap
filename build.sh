@@ -38,6 +38,12 @@ mkdir -p "$APP_DIR/Contents/Resources"
 
 cp build/ShotSnap "$APP_DIR/Contents/MacOS/ShotSnap"
 cp Info.plist "$APP_DIR/Contents/Info.plist"
+
+if [ -d "Sources/Resources" ]; then
+    echo "🎨 Копирование ресурсов и 3D-иконок..."
+    cp -R Sources/Resources/* "$APP_DIR/Contents/Resources/"
+fi
+
 chmod +x "$APP_DIR/Contents/MacOS/ShotSnap"
 
 echo "🔏 Подпись бандла стабильным идентификатором com.kuleshav.shotsnap..."

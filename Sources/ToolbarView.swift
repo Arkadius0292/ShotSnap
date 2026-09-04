@@ -298,6 +298,7 @@ final class ToolbarView: NSVisualEffectView {
         let aiMaskBtn = NSButton(title: "AI Маска", target: self, action: #selector(aiMaskClicked))
         aiMaskBtn.image = IconFactory.createAIMaskIcon()
         aiMaskBtn.imagePosition = .imageLeading
+        aiMaskBtn.imageScaling = .scaleProportionallyDown
         aiMaskBtn.bezelStyle = .rounded
         aiMaskBtn.toolTip = "AI-Автомаска: найти и скрыть пароли, ключи, токены и ПДн (⌘D)"
         aiMaskBtn.font = NSFont.systemFont(ofSize: 12, weight: .semibold)
@@ -310,17 +311,24 @@ final class ToolbarView: NSVisualEffectView {
         let copyBtn = NSButton(title: "Скопировать (⏎)", target: self, action: #selector(copyClicked))
         copyBtn.image = IconFactory.createCopyIcon()
         copyBtn.imagePosition = .imageLeading
+        copyBtn.imageScaling = .scaleProportionallyDown
         copyBtn.bezelStyle = .rounded
         copyBtn.wantsLayer = true
-        copyBtn.contentTintColor = .white
+        copyBtn.attributedTitle = NSAttributedString(
+            string: "Скопировать (⏎)",
+            attributes: [
+                .foregroundColor: NSColor.white,
+                .font: NSFont.systemFont(ofSize: 12, weight: .bold)
+            ]
+        )
         copyBtn.layer?.backgroundColor = NSColor(red: 0.15, green: 0.65, blue: 0.35, alpha: 1.0).cgColor
         copyBtn.layer?.cornerRadius = 6
-        copyBtn.font = NSFont.systemFont(ofSize: 12, weight: .bold)
         mainStack.addArrangedSubview(copyBtn)
         
         let b64Btn = NSButton(title: "Base64 (⌘B)", target: self, action: #selector(base64Clicked))
         b64Btn.image = IconFactory.createBase64Icon()
         b64Btn.imagePosition = .imageLeading
+        b64Btn.imageScaling = .scaleProportionallyDown
         b64Btn.bezelStyle = .rounded
         b64Btn.toolTip = "Скопировать как Base64 строку (для передачи через Termius/SSH)"
         b64Btn.font = NSFont.systemFont(ofSize: 12)
@@ -329,6 +337,7 @@ final class ToolbarView: NSVisualEffectView {
         let ocrBtn = NSButton(title: "OCR (⌘O)", target: self, action: #selector(ocrClicked))
         ocrBtn.image = IconFactory.createOCRIcon()
         ocrBtn.imagePosition = .imageLeading
+        ocrBtn.imageScaling = .scaleProportionallyDown
         ocrBtn.bezelStyle = .rounded
         ocrBtn.toolTip = "Распознать и скопировать текст со скриншота"
         ocrBtn.font = NSFont.systemFont(ofSize: 12)
@@ -337,6 +346,7 @@ final class ToolbarView: NSVisualEffectView {
         let cliBtn = NSButton(title: "CLI Путь (⇧⌘C)", target: self, action: #selector(cliPathClicked))
         cliBtn.image = IconFactory.createCLIIcon()
         cliBtn.imagePosition = .imageLeading
+        cliBtn.imageScaling = .scaleProportionallyDown
         cliBtn.bezelStyle = .rounded
         cliBtn.toolTip = "Сохранить файл в Загрузки и скопировать абсолютный путь в буфер"
         cliBtn.font = NSFont.systemFont(ofSize: 12)
@@ -345,6 +355,7 @@ final class ToolbarView: NSVisualEffectView {
         let saveBtn = NSButton(title: "", target: self, action: #selector(saveClicked))
         saveBtn.image = IconFactory.createSaveIcon()
         saveBtn.imagePosition = .imageOnly
+        saveBtn.imageScaling = .scaleProportionallyDown
         saveBtn.bezelStyle = .rounded
         saveBtn.toolTip = "Сохранить файл в выбранное место (⌘S)"
         saveBtn.font = NSFont.systemFont(ofSize: 12)
@@ -381,6 +392,7 @@ final class ToolbarView: NSVisualEffectView {
         btn.layer?.cornerRadius = 5
         btn.image = image
         btn.imagePosition = .imageOnly
+        btn.imageScaling = .scaleProportionallyDown
         btn.translatesAutoresizingMaskIntoConstraints = false
         btn.widthAnchor.constraint(equalToConstant: 28).isActive = true
         btn.heightAnchor.constraint(equalToConstant: 28).isActive = true

@@ -2,8 +2,52 @@ import Cocoa
 
 final class IconFactory {
     
+    // MARK: - 3D Claymorphic Icon Loader
+    private static var iconCache: [String: NSImage] = [:]
+    
+    static func load3DIcon(name: String, targetSize: CGSize) -> NSImage? {
+        let cacheKey = "\(name)_\(Int(targetSize.width))x\(Int(targetSize.height))"
+        if let cached = iconCache[cacheKey] {
+            return cached
+        }
+        
+        var foundPath: String?
+        
+        if let p = Bundle.main.path(forResource: name, ofType: "png", inDirectory: "Icons") {
+            foundPath = p
+        } else if let p = Bundle.main.path(forResource: name, ofType: "png") {
+            foundPath = p
+        } else {
+            // Development and fallback search paths
+            let candidates = [
+                "Sources/Resources/Icons/\(name).png",
+                "../Sources/Resources/Icons/\(name).png",
+                Bundle.main.bundleURL.appendingPathComponent("Contents/Resources/Icons/\(name).png").path,
+                Bundle.main.bundleURL.appendingPathComponent("Contents/Resources/\(name).png").path
+            ]
+            for candidate in candidates {
+                if FileManager.default.fileExists(atPath: candidate) {
+                    foundPath = candidate
+                    break
+                }
+            }
+        }
+        
+        guard let p = foundPath, let image = NSImage(contentsOfFile: p) else {
+            return nil
+        }
+        
+        image.size = targetSize
+        image.isTemplate = false
+        iconCache[cacheKey] = image
+        return image
+    }
+    
     // MARK: - Tool Vector Icons
     static func createSelectIcon() -> NSImage {
+        if let img = load3DIcon(name: "select", targetSize: CGSize(width: 22, height: 22)) {
+            return img
+        }
         // 4-Way Move Crosshair (Перекрестье перемещения и выбора)
         return createTemplateImage(size: CGSize(width: 18, height: 18)) { ctx in
             ctx.saveGState()
@@ -44,6 +88,9 @@ final class IconFactory {
     }
     
     static func createArrowIcon() -> NSImage {
+        if let img = load3DIcon(name: "arrow", targetSize: CGSize(width: 22, height: 22)) {
+            return img
+        }
         // Классическая прямая диагональная стрелка 45°
         return createTemplateImage(size: CGSize(width: 18, height: 18)) { ctx in
             ctx.saveGState()
@@ -69,6 +116,9 @@ final class IconFactory {
     }
     
     static func createRectIcon() -> NSImage {
+        if let img = load3DIcon(name: "rect", targetSize: CGSize(width: 22, height: 22)) {
+            return img
+        }
         return createTemplateImage(size: CGSize(width: 18, height: 18)) { ctx in
             ctx.saveGState()
             ctx.setLineWidth(1.8)
@@ -81,6 +131,9 @@ final class IconFactory {
     }
     
     static func createPenIcon() -> NSImage {
+        if let img = load3DIcon(name: "pen", targetSize: CGSize(width: 22, height: 22)) {
+            return img
+        }
         // Художественная кисть (ворсистый кончик, обойма, черенок)
         return createTemplateImage(size: CGSize(width: 18, height: 18)) { ctx in
             ctx.saveGState()
@@ -123,6 +176,9 @@ final class IconFactory {
     }
     
     static func createHighlighterIcon() -> NSImage {
+        if let img = load3DIcon(name: "highlighter", targetSize: CGSize(width: 22, height: 22)) {
+            return img
+        }
         // Скошенный маркер с выделительной черточкой
         return createTemplateImage(size: CGSize(width: 18, height: 18)) { ctx in
             ctx.saveGState()
@@ -162,6 +218,9 @@ final class IconFactory {
     }
     
     static func createTextIcon() -> NSImage {
+        if let img = load3DIcon(name: "text", targetSize: CGSize(width: 22, height: 22)) {
+            return img
+        }
         return createTemplateImage(size: CGSize(width: 18, height: 18)) { ctx in
             ctx.saveGState()
             let font = NSFont.systemFont(ofSize: 15.0, weight: .bold)
@@ -184,6 +243,9 @@ final class IconFactory {
     }
     
     static func createStepIcon() -> NSImage {
+        if let img = load3DIcon(name: "step", targetSize: CGSize(width: 22, height: 22)) {
+            return img
+        }
         return createTemplateImage(size: CGSize(width: 18, height: 18)) { ctx in
             ctx.saveGState()
             ctx.setLineWidth(1.6)
@@ -210,6 +272,9 @@ final class IconFactory {
     
     // MARK: - Mask 1: Manual Mask / Blur (Ручная маска)
     static func createManualMaskIcon() -> NSImage {
+        if let img = load3DIcon(name: "blur", targetSize: CGSize(width: 22, height: 22)) {
+            return img
+        }
         return createTemplateImage(size: CGSize(width: 20, height: 18)) { ctx in
             ctx.saveGState()
             ctx.setLineWidth(1.6)
@@ -249,6 +314,9 @@ final class IconFactory {
     
     // MARK: - Mask 2: AI Smart Redact Mask (Монохромная AI-Маска с буквами AI)
     static func createAIMaskIcon() -> NSImage {
+        if let img = load3DIcon(name: "ai_mask", targetSize: CGSize(width: 20, height: 20)) {
+            return img
+        }
         return createTemplateImage(size: CGSize(width: 20, height: 18)) { ctx in
             ctx.saveGState()
             ctx.setLineWidth(1.6)
@@ -302,6 +370,9 @@ final class IconFactory {
     
     // MARK: - Action Button Icons (Clean vector graphics)
     static func createCopyIcon() -> NSImage {
+        if let img = load3DIcon(name: "copy", targetSize: CGSize(width: 18, height: 18)) {
+            return img
+        }
         return createTemplateImage(size: CGSize(width: 16, height: 16)) { ctx in
             ctx.saveGState()
             ctx.setLineWidth(1.5)
@@ -331,6 +402,9 @@ final class IconFactory {
     }
     
     static func createPasteIcon() -> NSImage {
+        if let img = load3DIcon(name: "paste", targetSize: CGSize(width: 20, height: 20)) {
+            return img
+        }
         return createTemplateImage(size: CGSize(width: 16, height: 16)) { ctx in
             ctx.saveGState()
             ctx.setLineWidth(1.5)
@@ -363,6 +437,9 @@ final class IconFactory {
     }
     
     static func createUndoIcon() -> NSImage {
+        if let img = load3DIcon(name: "undo", targetSize: CGSize(width: 20, height: 20)) {
+            return img
+        }
         return createTemplateImage(size: CGSize(width: 16, height: 16)) { ctx in
             ctx.saveGState()
             ctx.setLineWidth(1.6)
@@ -388,6 +465,9 @@ final class IconFactory {
     }
     
     static func createBase64Icon() -> NSImage {
+        if let img = load3DIcon(name: "base64", targetSize: CGSize(width: 18, height: 18)) {
+            return img
+        }
         return createTemplateImage(size: CGSize(width: 16, height: 16)) { ctx in
             ctx.saveGState()
             ctx.setLineWidth(1.5)
@@ -420,6 +500,9 @@ final class IconFactory {
     }
     
     static func createOCRIcon() -> NSImage {
+        if let img = load3DIcon(name: "ocr", targetSize: CGSize(width: 18, height: 18)) {
+            return img
+        }
         return createTemplateImage(size: CGSize(width: 16, height: 16)) { ctx in
             ctx.saveGState()
             ctx.setLineWidth(1.5)
@@ -452,6 +535,9 @@ final class IconFactory {
     }
     
     static func createCLIIcon() -> NSImage {
+        if let img = load3DIcon(name: "cli", targetSize: CGSize(width: 18, height: 18)) {
+            return img
+        }
         return createTemplateImage(size: CGSize(width: 16, height: 16)) { ctx in
             ctx.saveGState()
             ctx.setLineWidth(1.5)
@@ -481,6 +567,9 @@ final class IconFactory {
     }
     
     static func createSaveIcon() -> NSImage {
+        if let img = load3DIcon(name: "save", targetSize: CGSize(width: 20, height: 20)) {
+            return img
+        }
         return createTemplateImage(size: CGSize(width: 16, height: 16)) { ctx in
             ctx.saveGState()
             ctx.setLineWidth(1.5)
