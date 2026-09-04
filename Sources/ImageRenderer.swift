@@ -6,19 +6,20 @@ final class ImageRenderer {
     
     static func render(
         baseImage: NSImage,
-        baseImageRect: CGRect? = nil,
+        baseImageRect: CGRect,
+        exportRect: CGRect,
         annotations: [BaseAnnotation],
         viewBounds: CGRect
     ) -> (image: NSImage, pngData: Data?) {
         let scale: CGFloat
         if let rep = baseImage.representations.first {
-            scale = max(1.0, CGFloat(rep.pixelsWide) / max(viewBounds.width, 1))
+            scale = max(1.0, CGFloat(rep.pixelsWide) / max(baseImageRect.width, 1))
         } else {
             scale = 2.0
         }
         
-        let targetWidth = max(1, Int(viewBounds.width * scale))
-        let targetHeight = max(1, Int(viewBounds.height * scale))
+        let targetWidth = max(1, Int(exportRect.width * scale))
+        let targetHeight = max(1, Int(exportRect.height * scale))
         
         guard let colorSpace = CGColorSpace(name: CGColorSpace.sRGB),
               let context = CGContext(
@@ -34,34 +35,33 @@ final class ImageRenderer {
         }
         
         context.scaleBy(x: scale, y: scale)
+        context.translateBy(x: -exportRect.origin.x, y: -exportRect.origin.y)
         
-        // 1. Draw background and base image
+        // 1. Draw background if expanded
         NSGraphicsContext.saveGraphicsState()
         let nsContext = NSGraphicsContext(cgContext: context, flipped: false)
         NSGraphicsContext.current = nsContext
         
-        let bRect = baseImageRect ?? viewBounds
-        
-        if bRect != viewBounds && viewBounds.width > 0 && viewBounds.height > 0 {
+        if exportRect != baseImageRect {
             context.setFillColor(NSColor(white: 0.12, alpha: 1.0).cgColor)
-            context.fill(viewBounds)
+            context.fill(exportRect)
             
             context.saveGState()
             context.setShadow(offset: CGSize(width: 0, height: -2), blur: 8, color: NSColor.black.withAlphaComponent(0.45).cgColor)
             context.setFillColor(NSColor.black.cgColor)
-            let cardPath = CGPath(roundedRect: bRect, cornerWidth: 4, cornerHeight: 4, transform: nil)
+            let cardPath = CGPath(roundedRect: baseImageRect, cornerWidth: 4, cornerHeight: 4, transform: nil)
             context.addPath(cardPath)
             context.fillPath()
             context.restoreGState()
         }
         
-        baseImage.draw(in: bRect)
+        baseImage.draw(in: baseImageRect)
         
         // 2. Draw annotations without selection handles
         for annotation in annotations {
             let wasSelected = annotation.isSelected
             annotation.isSelected = false
-            annotation.draw(in: context, baseImage: baseImage, baseImageRect: bRect, viewBounds: viewBounds)
+            annotation.draw(in: context, baseImage: baseImage, baseImageRect: baseImageRect, viewBounds: viewBounds)
             annotation.isSelected = wasSelected
         }
         
@@ -71,7 +71,7 @@ final class ImageRenderer {
             return (baseImage, nil)
         }
         
-        let finalImage = NSImage(cgImage: cgImage, size: viewBounds.size)
+        let finalImage = NSImage(cgImage: cgImage, size: exportRect.size)
         
         // Convert to PNG data
         let rep = NSBitmapImageRep(cgImage: cgImage)

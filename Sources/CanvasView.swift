@@ -26,25 +26,19 @@ final class CanvasTextView: NSTextView {
 final class CanvasView: NSView, NSTextViewDelegate {
     weak var delegate: CanvasViewDelegate?
     
-    var baseImage: NSImage? {
-        didSet {
-            stepCounter = 1
-            annotations.removeAll()
-            selectedAnnotation = nil
-            undoStack.removeAll()
-            redoStack.removeAll()
-            
-            if let image = baseImage {
-                baseImageRect = CGRect(origin: .zero, size: image.size)
-                frame = baseImageRect
-            } else {
-                baseImageRect = .zero
-            }
-            needsDisplay = true
-        }
-    }
-    
+    var baseImage: NSImage?
     var baseImageRect: CGRect = .zero
+    
+    func setBaseImage(_ image: NSImage, initialRect: CGRect) {
+        self.baseImage = image
+        self.baseImageRect = initialRect
+        self.stepCounter = 1
+        self.annotations.removeAll()
+        self.selectedAnnotation = nil
+        self.undoStack.removeAll()
+        self.redoStack.removeAll()
+        needsDisplay = true
+    }
     
     var currentTool: ToolType = .arrow {
         didSet {
@@ -123,7 +117,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         wantsLayer = true
-        layer?.backgroundColor = NSColor(white: 0.11, alpha: 1.0).cgColor
+        layer?.backgroundColor = NSColor(white: 0.12, alpha: 1.0).cgColor
     }
     
     required init?(coder: NSCoder) {
@@ -160,14 +154,13 @@ final class CanvasView: NSView, NSTextViewDelegate {
             unionRect = unionRect.union(a.boundingBox)
         }
         
-        let pad: CGFloat = 24.0
+        let pad: CGFloat = 30.0
         let leftPad: CGFloat = unionRect.minX < 0 ? ceil(abs(unionRect.minX) + pad) : 0
         let bottomPad: CGFloat = unionRect.minY < 0 ? ceil(abs(unionRect.minY) + pad) : 0
         let rightPad: CGFloat = unionRect.maxX > bounds.width ? ceil((unionRect.maxX - bounds.width) + pad) : 0
         let topPad: CGFloat = unionRect.maxY > bounds.height ? ceil((unionRect.maxY - bounds.height) + pad) : 0
         
         if leftPad > 0 || bottomPad > 0 || rightPad > 0 || topPad > 0 {
-            // Shift all annotations and baseImage if expanding left or bottom
             if leftPad > 0 || bottomPad > 0 {
                 let delta = CGSize(width: leftPad, height: bottomPad)
                 for a in annotations {
@@ -185,6 +178,23 @@ final class CanvasView: NSView, NSTextViewDelegate {
             needsDisplay = true
             delegate?.canvasDidChangeSize(self, newSize: newSize)
         }
+    }
+    
+    // MARK: - Calculate Tight Export Rectangle
+    func calculateExportRect() -> CGRect {
+        var unionRect = baseImageRect
+        for a in annotations {
+            unionRect = unionRect.union(a.boundingBox)
+        }
+        
+        let pad: CGFloat = 16.0
+        let minX = unionRect.minX < baseImageRect.minX ? max(0, unionRect.minX - pad) : baseImageRect.minX
+        let minY = unionRect.minY < baseImageRect.minY ? max(0, unionRect.minY - pad) : baseImageRect.minY
+        let maxX = unionRect.maxX > baseImageRect.maxX ? min(bounds.width, unionRect.maxX + pad) : baseImageRect.maxX
+        let maxY = unionRect.maxY > baseImageRect.maxY ? min(bounds.height, unionRect.maxY + pad) : baseImageRect.maxY
+        
+        let result = CGRect(x: minX, y: minY, width: maxX - minX, height: maxY - minY).integral
+        return result.width > 0 && result.height > 0 ? result : baseImageRect
     }
     
     // MARK: - Selection Management
@@ -230,7 +240,6 @@ final class CanvasView: NSView, NSTextViewDelegate {
     func pasteImage(_ image: NSImage) {
         commitActiveTextField()
         
-        // Compute reasonable starting size
         var imgSize = image.size
         let maxW = max(100.0, bounds.width * 0.70)
         let maxH = max(100.0, bounds.height * 0.70)
@@ -352,16 +361,21 @@ final class CanvasView: NSView, NSTextViewDelegate {
                 isDraggingSelection = false
             }
             
-            // Double-click on text to edit in-place
-            if event.clickCount == 2, let textAnn = target as? TextAnnotation {
-                showTextEditor(for: textAnn)
+            // Instant text edit mode:
+            // - Double click in ANY tool mode
+            // - OR Single click when Text tool (.text) is currently selected!
+            if let textAnn = target as? TextAnnotation {
+                if event.clickCount == 2 || currentTool == .text {
+                    showTextEditor(for: textAnn)
+                    isDraggingSelection = false
+                }
             }
             
             needsDisplay = true
             return
         }
         
-        // 3. Clicked on empty space: deselect and proceed with current drawing tool
+        // 3. Clicked on empty space (inside or outside screenshot): deselect and proceed with tool
         deselectAll()
         
         switch currentTool {
@@ -383,7 +397,6 @@ final class CanvasView: NSView, NSTextViewDelegate {
             activeAnnotation = PenAnnotation(points: penPoints, color: currentColor, lineWidth: currentLineWidth, isHighlighter: true)
             
         case .text:
-            // Will track drag box or click
             activeTextCreationRect = CGRect(origin: point, size: .zero)
             
         case .step:
@@ -405,7 +418,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
     override func mouseDragged(with event: NSEvent) {
         let currentPoint = convert(event.locationInWindow, from: nil)
         
-        // 1. Handle dragging (e.g. arrow start, arrow end, arrow bend point, rect corner, text frame resize)
+        // 1. Handle dragging
         if isDraggingHandle, let selected = selectedAnnotation, let handle = activeDragHandle {
             selected.moveHandle(handle, to: currentPoint)
             needsDisplay = true
@@ -516,13 +529,14 @@ final class CanvasView: NSView, NSTextViewDelegate {
         createInPlaceTextView(frame: frame, initialText: "")
     }
     
-    private func showTextEditor(for annotation: TextAnnotation) {
+    func showTextEditor(for annotation: TextAnnotation) {
         activeTextOrigin = annotation.origin
         activeTextWidth = annotation.width
         activeTextAnnotation = annotation
         
         let bounds = annotation.boundingBox
         createInPlaceTextView(frame: bounds, initialText: annotation.text)
+        needsDisplay = true // Trigger redraw so activeTextAnnotation is hidden from canvas while editing
     }
     
     private func createInPlaceTextView(frame: CGRect, initialText: String) {
@@ -531,13 +545,12 @@ final class CanvasView: NSView, NSTextViewDelegate {
         let scrollView = NSScrollView(frame: frame)
         scrollView.hasVerticalScroller = false
         scrollView.hasHorizontalScroller = false
-        scrollView.drawsBackground = false
-        scrollView.borderType = .noBorder
+        scrollView.drawsBackground = true
+        scrollView.backgroundColor = NSColor(white: 0.10, alpha: 0.96)
         scrollView.wantsLayer = true
         scrollView.layer?.cornerRadius = 6
         scrollView.layer?.borderWidth = 1.5
         scrollView.layer?.borderColor = currentColor.cgColor
-        scrollView.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.85).cgColor
         
         let contentSize = scrollView.contentSize
         let textStorage = NSTextStorage()
@@ -556,9 +569,10 @@ final class CanvasView: NSView, NSTextViewDelegate {
         textView.isHorizontallyResizable = false
         textView.isVerticallyResizable = true
         textView.autoresizingMask = [.width]
-        textView.backgroundColor = .clear
+        textView.backgroundColor = NSColor(white: 0.10, alpha: 0.96)
         textView.textColor = currentColor
         textView.font = NSFont.systemFont(ofSize: currentFontSize, weight: .semibold)
+        textView.textContainerInset = NSSize(width: 8, height: 6)
         
         let style = NSMutableParagraphStyle()
         style.lineBreakMode = .byWordWrapping
@@ -627,14 +641,14 @@ final class CanvasView: NSView, NSTextViewDelegate {
         super.draw(dirtyRect)
         guard let context = NSGraphicsContext.current?.cgContext else { return }
         
-        // 1. If canvas is expanded beyond base image, fill canvas background
-        if baseImageRect != bounds && bounds.width > 0 && bounds.height > 0 {
-            context.setFillColor(NSColor(white: 0.12, alpha: 1.0).cgColor)
-            context.fill(bounds)
-            
-            // Draw subtle drop shadow card for original baseImage
+        // 1. Sleek dark canvas background across entire window surface
+        context.setFillColor(NSColor(white: 0.12, alpha: 1.0).cgColor)
+        context.fill(bounds)
+        
+        // 2. Draw subtle drop shadow card for original baseImage screenshot
+        if baseImageRect.width > 0 && baseImageRect.height > 0 {
             context.saveGState()
-            context.setShadow(offset: CGSize(width: 0, height: -2), blur: 8, color: NSColor.black.withAlphaComponent(0.45).cgColor)
+            context.setShadow(offset: CGSize(width: 0, height: -2), blur: 10, color: NSColor.black.withAlphaComponent(0.55).cgColor)
             context.setFillColor(NSColor.black.cgColor)
             let cardPath = CGPath(roundedRect: baseImageRect, cornerWidth: 4, cornerHeight: 4, transform: nil)
             context.addPath(cardPath)
@@ -642,22 +656,25 @@ final class CanvasView: NSView, NSTextViewDelegate {
             context.restoreGState()
         }
         
-        // 2. Draw base image
+        // 3. Draw base image
         if let image = baseImage {
             image.draw(in: baseImageRect)
         }
         
-        // 3. Draw committed annotations
+        // 4. Draw committed annotations (hiding the one currently being edited in-place to prevent double-rendering)
         for annotation in annotations {
+            if annotation == activeTextAnnotation {
+                continue
+            }
             annotation.draw(in: context, baseImage: baseImage, baseImageRect: baseImageRect, viewBounds: bounds)
         }
         
-        // 4. Draw active in-progress annotation
+        // 5. Draw active in-progress annotation
         if let active = activeAnnotation {
             active.draw(in: context, baseImage: baseImage, baseImageRect: baseImageRect, viewBounds: bounds)
         }
         
-        // 5. Draw text creation preview rect if dragging text tool
+        // 6. Draw text creation preview rect if dragging text tool
         if let textRect = activeTextCreationRect, textRect.width > 2 || textRect.height > 2 {
             context.saveGState()
             context.setStrokeColor(currentColor.withAlphaComponent(0.8).cgColor)

@@ -5,23 +5,20 @@ final class EditorWindowController: NSWindowController, ToolbarViewDelegate, Can
     private var canvasView: CanvasView!
     private var localKeyMonitor: Any?
     
-    private var canvasWidthConstraint: NSLayoutConstraint?
-    private var canvasHeightConstraint: NSLayoutConstraint?
-    
     var onWindowDidClose: (() -> Void)?
     
     static let toolbarHeight: CGFloat = 44.0
-    static let minToolbarWidth: CGFloat = 660.0
+    static let minToolbarWidth: CGFloat = 720.0
     
     convenience init(image: NSImage, targetScreen: NSScreen? = nil) {
         let screen = targetScreen ?? NSScreen.main ?? NSScreen.screens.first!
         let screenVisibleFrame = screen.visibleFrame
         let screenScale = screen.backingScaleFactor
         
-        let maxAllowedWidth = max(500.0, screenVisibleFrame.width * 0.94)
-        let maxAllowedHeight = max(350.0, (screenVisibleFrame.height - Self.toolbarHeight - 32.0) * 0.90)
+        let maxAllowedWidth = max(600.0, screenVisibleFrame.width * 0.96)
+        let maxAllowedHeight = max(400.0, (screenVisibleFrame.height - Self.toolbarHeight - 32.0) * 0.94)
         
-        // 2. Calculate true logical point dimensions using the screen scale
+        // 1. Calculate true logical point dimensions using the screen scale
         var imgWidth = image.size.width
         var imgHeight = image.size.height
         
@@ -31,19 +28,22 @@ final class EditorWindowController: NSWindowController, ToolbarViewDelegate, Can
         }
         image.size = CGSize(width: imgWidth, height: imgHeight)
         
-        // 3. Compute scale: preserve 1:1 true size if it fits on screen, only scale down if larger than monitor
-        let scale = min(1.0, min(maxAllowedWidth / max(imgWidth, 1), maxAllowedHeight / max(imgHeight, 1)))
+        // 2. Compute scale: preserve 1:1 true size if it fits on screen, only scale down if larger than monitor
+        let scale = min(1.0, min((maxAllowedWidth - 160.0) / max(imgWidth, 1), (maxAllowedHeight - 120.0) / max(imgHeight, 1)))
         let scaledCanvasWidth = max(50.0, round(imgWidth * scale))
         let scaledCanvasHeight = max(50.0, round(imgHeight * scale))
         
-        let contentWidth = min(screenVisibleFrame.width, max(EditorWindowController.minToolbarWidth, scaledCanvasWidth))
-        let contentHeight = min(screenVisibleFrame.height, scaledCanvasHeight + EditorWindowController.toolbarHeight)
+        // 3. Generous initial margins (80px left/right, 50px top/bottom) for instant drawing outside screenshot
+        let marginX: CGFloat = 80.0
+        let marginY: CGFloat = 50.0
+        
+        let contentWidth = min(screenVisibleFrame.width, max(EditorWindowController.minToolbarWidth, scaledCanvasWidth + marginX * 2))
+        let contentHeight = min(screenVisibleFrame.height, scaledCanvasHeight + marginY * 2 + EditorWindowController.toolbarHeight)
         
         // 4. Center content rect squarely within screenVisibleFrame
         var contentX = screenVisibleFrame.midX - contentWidth / 2.0
         var contentY = screenVisibleFrame.midY - contentHeight / 2.0
         
-        // Safe bounding
         if contentX < screenVisibleFrame.minX { contentX = screenVisibleFrame.minX }
         if contentX + contentWidth > screenVisibleFrame.maxX { contentX = screenVisibleFrame.maxX - contentWidth }
         if contentY < screenVisibleFrame.minY { contentY = screenVisibleFrame.minY }
@@ -56,7 +56,6 @@ final class EditorWindowController: NSWindowController, ToolbarViewDelegate, Can
             height: contentHeight
         )
         
-        // Use NSPanel designed for non-disruptive overlays over Full Screen spaces
         let panel = NSPanel(
             contentRect: initialContentRect,
             styleMask: [.titled, .closable, .miniaturizable, .resizable, .nonactivatingPanel],
@@ -74,7 +73,6 @@ final class EditorWindowController: NSWindowController, ToolbarViewDelegate, Can
         panel.worksWhenModal = true
         panel.hidesOnDeactivate = false
         
-        // Modal panel level guarantees presentation over full-screen apps and spaces
         panel.level = .modalPanel
         panel.collectionBehavior = [
             .canJoinAllSpaces,
@@ -84,69 +82,54 @@ final class EditorWindowController: NSWindowController, ToolbarViewDelegate, Can
         panel.backgroundColor = NSColor(white: 0.12, alpha: 1.0)
         panel.hasShadow = true
         
-        // Calculate proper full frame including title bar
         let fullFrame = panel.frameRect(forContentRect: initialContentRect)
         panel.setFrame(fullFrame, display: true)
         
         self.init(window: panel)
         
-        setupViews(image: image, canvasSize: CGSize(width: scaledCanvasWidth, height: scaledCanvasHeight))
+        setupViews(image: image, scaledSize: CGSize(width: scaledCanvasWidth, height: scaledCanvasHeight), contentSize: initialContentRect.size)
         setupKeyboardMonitoring()
     }
     
-    private func setupViews(image: NSImage, canvasSize: CGSize) {
+    private func setupViews(image: NSImage, scaledSize: CGSize, contentSize: CGSize) {
         guard let window = window, let contentView = window.contentView else { return }
         
-        // 1. Toolbar View at the very top (full window width)
+        // 1. Toolbar View pinned to top
         toolbarView = ToolbarView()
         toolbarView.translatesAutoresizingMaskIntoConstraints = false
         toolbarView.delegate = self
         contentView.addSubview(toolbarView)
         
-        // 2. Container for Canvas (strictly fills space below toolbar)
-        let canvasContainer = NSView()
-        canvasContainer.translatesAutoresizingMaskIntoConstraints = false
-        canvasContainer.wantsLayer = true
-        canvasContainer.layer?.backgroundColor = NSColor(white: 0.08, alpha: 1.0).cgColor
-        canvasContainer.layer?.masksToBounds = true
-        contentView.addSubview(canvasContainer)
-        
-        // 3. Canvas View with EXACT aspect ratio and dimensions
-        canvasView = CanvasView(frame: NSRect(origin: .zero, size: canvasSize))
+        // 2. Canvas View fills the entire area below the toolbar (full click surface)
+        canvasView = CanvasView(frame: .zero)
         canvasView.translatesAutoresizingMaskIntoConstraints = false
-        canvasView.baseImage = image
         canvasView.delegate = self
-        
-        let savedSizeIdx = max(0, min(toolbarView.sizePresets.count - 1, PreferencesManager.shared.savedSizeIndex))
-        let preset = toolbarView.sizePresets[savedSizeIdx]
-        canvasView.applySizePreset(lineWidth: preset.lineWidth, stepRadius: preset.stepRadius, fontSize: preset.fontSize)
-        
-        canvasContainer.addSubview(canvasView)
-        
-        let widthConstraint = canvasView.widthAnchor.constraint(equalToConstant: canvasSize.width)
-        let heightConstraint = canvasView.heightAnchor.constraint(equalToConstant: canvasSize.height)
-        self.canvasWidthConstraint = widthConstraint
-        self.canvasHeightConstraint = heightConstraint
+        contentView.addSubview(canvasView)
         
         NSLayoutConstraint.activate([
-            // Toolbar layout (pinned to top of content view)
             toolbarView.topAnchor.constraint(equalTo: contentView.topAnchor),
             toolbarView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
             toolbarView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
             toolbarView.heightAnchor.constraint(equalToConstant: Self.toolbarHeight),
             
-            // Canvas container layout (starts strictly BELOW toolbar)
-            canvasContainer.topAnchor.constraint(equalTo: toolbarView.bottomAnchor),
-            canvasContainer.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
-            canvasContainer.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
-            canvasContainer.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
-            
-            // Canvas view centered in container with exact size
-            canvasView.centerXAnchor.constraint(equalTo: canvasContainer.centerXAnchor),
-            canvasView.centerYAnchor.constraint(equalTo: canvasContainer.centerYAnchor),
-            widthConstraint,
-            heightConstraint
+            canvasView.topAnchor.constraint(equalTo: toolbarView.bottomAnchor),
+            canvasView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
+            canvasView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
+            canvasView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor)
         ])
+        
+        // Center baseImageRect inside the initial canvas area
+        let canvasW = contentSize.width
+        let canvasH = contentSize.height - Self.toolbarHeight
+        let originX = round((canvasW - scaledSize.width) / 2.0)
+        let originY = round((canvasH - scaledSize.height) / 2.0)
+        let initialBaseRect = CGRect(x: originX, y: originY, width: scaledSize.width, height: scaledSize.height)
+        
+        canvasView.setBaseImage(image, initialRect: initialBaseRect)
+        
+        let savedSizeIdx = max(0, min(toolbarView.sizePresets.count - 1, PreferencesManager.shared.savedSizeIndex))
+        let preset = toolbarView.sizePresets[savedSizeIdx]
+        canvasView.applySizePreset(lineWidth: preset.lineWidth, stepRadius: preset.stepRadius, fontSize: preset.fontSize)
     }
     
     private func setupKeyboardMonitoring() {
@@ -167,7 +150,6 @@ final class EditorWindowController: NSWindowController, ToolbarViewDelegate, Can
                     }
                     return nil
                 case "v":
-                    // ⌘V: Paste image or text onto canvas if not editing active text view
                     if !(self.window?.firstResponder is NSText) {
                         self.performPasteFromClipboard()
                         return nil
@@ -194,6 +176,10 @@ final class EditorWindowController: NSWindowController, ToolbarViewDelegate, Can
             } else {
                 // Standalone keys
                 if event.keyCode == 36 { // Return / Enter
+                    if let textAnn = self.canvasView.selectedAnnotation as? TextAnnotation, !(self.window?.firstResponder is NSText) {
+                        self.canvasView.showTextEditor(for: textAnn)
+                        return nil
+                    }
                     self.performCopy()
                     return nil
                 } else if event.keyCode == 53 { // Escape
@@ -224,28 +210,58 @@ final class EditorWindowController: NSWindowController, ToolbarViewDelegate, Can
         }
     }
     
-    // MARK: - Clipboard Paste Action
+    // MARK: - Bulletproof Clipboard Image Extraction
+    static func extractImageFromPasteboard(_ pb: NSPasteboard) -> NSImage? {
+        if let images = pb.readObjects(forClasses: [NSImage.self], options: nil) as? [NSImage], let first = images.first {
+            return first
+        }
+        if let img = NSImage(pasteboard: pb) {
+            return img
+        }
+        let supportedTypes: [NSPasteboard.PasteboardType] = [
+            .png,
+            .tiff,
+            NSPasteboard.PasteboardType("public.jpeg"),
+            NSPasteboard.PasteboardType("public.png"),
+            NSPasteboard.PasteboardType("image/png"),
+            NSPasteboard.PasteboardType("image/jpeg")
+        ]
+        for t in supportedTypes {
+            if let data = pb.data(forType: t), let img = NSImage(data: data) {
+                return img
+            }
+        }
+        if let urls = pb.readObjects(forClasses: [NSURL.self], options: nil) as? [URL] {
+            for url in urls {
+                if let img = NSImage(contentsOf: url) {
+                    return img
+                }
+            }
+        }
+        return nil
+    }
+    
     private func performPasteFromClipboard() {
         let pasteboard = NSPasteboard.general
         
-        // 1. Check for image
-        if let image = NSImage(pasteboard: pasteboard) {
+        if let image = Self.extractImageFromPasteboard(pasteboard) {
             canvasView.pasteImage(image)
+            logSnap("🖼 Изображение успешно вставлено из буфера обмена!")
             return
         }
         
-        // 2. Check for text
         if let str = pasteboard.string(forType: .string), !str.isEmpty {
             canvasView.pasteText(str)
+            logSnap("📝 Текст успешно вставлен из буфера обмена!")
             return
         }
+        
+        NSSound(named: "Basso")?.play()
+        logSnap("⚠️ В буфере обмена нет изображения или текста для вставки")
     }
     
     // MARK: - Canvas Delegate & Window Auto-Expansion
     func canvasDidChangeSize(_ canvas: CanvasView, newSize: CGSize) {
-        canvasWidthConstraint?.constant = newSize.width
-        canvasHeightConstraint?.constant = newSize.height
-        
         guard let window = window else { return }
         let screen = window.screen ?? NSScreen.main ?? NSScreen.screens.first!
         let screenFrame = screen.visibleFrame
@@ -260,7 +276,7 @@ final class EditorWindowController: NSWindowController, ToolbarViewDelegate, Can
         let deltaW = targetContentWidth - currentContentRect.width
         let deltaH = targetContentHeight - currentContentRect.height
         
-        if abs(deltaW) > 1.0 || abs(deltaH) > 1.0 {
+        if deltaW > 1.0 || deltaH > 1.0 {
             let newX = max(screenFrame.minX, min(screenFrame.maxX - targetContentWidth, currentContentRect.minX - deltaW / 2.0))
             let newY = max(screenFrame.minY, min(screenFrame.maxY - targetContentHeight, currentContentRect.minY - deltaH / 2.0))
             let newContentRect = NSRect(x: newX, y: newY, width: targetContentWidth, height: targetContentHeight)
@@ -286,6 +302,10 @@ final class EditorWindowController: NSWindowController, ToolbarViewDelegate, Can
         canvasView.undo()
     }
     
+    func toolbarDidClickPaste() {
+        performPasteFromClipboard()
+    }
+    
     func toolbarDidClickCopy() {
         performCopy()
     }
@@ -297,6 +317,7 @@ final class EditorWindowController: NSWindowController, ToolbarViewDelegate, Can
         let result = ImageRenderer.render(
             baseImage: base,
             baseImageRect: canvasView.baseImageRect,
+            exportRect: canvasView.calculateExportRect(),
             annotations: canvasView.annotations,
             viewBounds: canvasView.bounds
         )
@@ -313,6 +334,7 @@ final class EditorWindowController: NSWindowController, ToolbarViewDelegate, Can
         let result = ImageRenderer.render(
             baseImage: base,
             baseImageRect: canvasView.baseImageRect,
+            exportRect: canvasView.calculateExportRect(),
             annotations: canvasView.annotations,
             viewBounds: canvasView.bounds
         )
@@ -342,6 +364,7 @@ final class EditorWindowController: NSWindowController, ToolbarViewDelegate, Can
         let result = ImageRenderer.render(
             baseImage: base,
             baseImageRect: canvasView.baseImageRect,
+            exportRect: canvasView.calculateExportRect(),
             annotations: canvasView.annotations,
             viewBounds: canvasView.bounds
         )
@@ -380,6 +403,7 @@ final class EditorWindowController: NSWindowController, ToolbarViewDelegate, Can
         let result = ImageRenderer.render(
             baseImage: base,
             baseImageRect: canvasView.baseImageRect,
+            exportRect: canvasView.calculateExportRect(),
             annotations: canvasView.annotations,
             viewBounds: canvasView.bounds
         )
@@ -395,6 +419,7 @@ final class EditorWindowController: NSWindowController, ToolbarViewDelegate, Can
         let result = ImageRenderer.render(
             baseImage: base,
             baseImageRect: canvasView.baseImageRect,
+            exportRect: canvasView.calculateExportRect(),
             annotations: canvasView.annotations,
             viewBounds: canvasView.bounds
         )

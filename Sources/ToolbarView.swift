@@ -154,6 +154,7 @@ protocol ToolbarViewDelegate: AnyObject {
     func toolbarDidSelectColor(_ color: NSColor)
     func toolbarDidSelectSizePreset(lineWidth: CGFloat, stepRadius: CGFloat, fontSize: CGFloat)
     func toolbarDidClickUndo()
+    func toolbarDidClickPaste()
     func toolbarDidClickCopy()
     func toolbarDidClickBase64()
     func toolbarDidClickOCR()
@@ -278,11 +279,16 @@ final class ToolbarView: NSVisualEffectView {
         // Separator
         mainStack.addArrangedSubview(createSeparator())
         
-        // 4. Undo Button
+        // 4. Undo & Paste Buttons
         let undoBtn = createIconButton(iconName: "arrow.uturn.backward", tooltip: "Отменить (⌘Z)")
         undoBtn.target = self
         undoBtn.action = #selector(undoClicked)
         mainStack.addArrangedSubview(undoBtn)
+        
+        let pasteBtn = createIconButton(iconName: "doc.on.clipboard", tooltip: "Вставить картинку из буфера (⌘V)")
+        pasteBtn.target = self
+        pasteBtn.action = #selector(pasteClicked)
+        mainStack.addArrangedSubview(pasteBtn)
         
         // Separator
         mainStack.addArrangedSubview(createSeparator())
@@ -446,6 +452,10 @@ final class ToolbarView: NSVisualEffectView {
     
     @objc private func undoClicked() {
         delegate?.toolbarDidClickUndo()
+    }
+    
+    @objc private func pasteClicked() {
+        delegate?.toolbarDidClickPaste()
     }
     
     @objc private func copyClicked() {
