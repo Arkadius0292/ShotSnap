@@ -8,7 +8,7 @@ final class EditorWindowController: NSWindowController, ToolbarViewDelegate, Can
     var onWindowDidClose: (() -> Void)?
     
     static let toolbarHeight: CGFloat = 48.0
-    static let minToolbarWidth: CGFloat = 880.0
+    static let minToolbarWidth: CGFloat = 1045.0
     
     convenience init(image: NSImage, targetScreen: NSScreen? = nil) {
         let screen = targetScreen ?? NSScreen.main ?? NSScreen.screens.first!
@@ -81,6 +81,16 @@ final class EditorWindowController: NSWindowController, ToolbarViewDelegate, Can
         ]
         panel.backgroundColor = NSColor(white: 0.12, alpha: 1.0)
         panel.hasShadow = true
+        
+        // Interactive Branding Badge in Window Titlebar (level with traffic lights)
+        let titlebarAccessory = NSTitlebarAccessoryViewController()
+        let badgeContainer = NSView(frame: NSRect(x: 0, y: 0, width: 168, height: 32))
+        let badge = BrandBadgeView(frame: NSRect(x: 0, y: 5, width: 156, height: 22))
+        badge.autoresizingMask = [.minYMargin, .maxYMargin]
+        badgeContainer.addSubview(badge)
+        titlebarAccessory.view = badgeContainer
+        titlebarAccessory.layoutAttribute = .trailing
+        panel.addTitlebarAccessoryViewController(titlebarAccessory)
         
         let fullFrame = panel.frameRect(forContentRect: initialContentRect)
         panel.setFrame(fullFrame, display: true)
