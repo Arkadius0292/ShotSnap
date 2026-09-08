@@ -48,7 +48,11 @@ final class HotKeyManager {
         )
     }
     
-    func register(keyCode: UInt32 = 6 /* kVK_ANSI_Z */, modifiers: UInt32 = UInt32(optionKey)) {
+    func register(preset: HotKeyPreset) {
+        register(keyCode: preset.keyCode, modifiers: preset.carbonModifiers, description: preset.title)
+    }
+    
+    func register(keyCode: UInt32 = UInt32(kVK_ANSI_Z), modifiers: UInt32 = UInt32(optionKey), description: String = "⌥Z (Option + Z)") {
         unregister()
         
         let hotKeyID = EventHotKeyID(
@@ -66,9 +70,9 @@ final class HotKeyManager {
         )
         
         if status != noErr {
-            print("Failed to register hotkey: \(status)")
+            logSnap("❌ Ошибка регистрации хоткея \(description): status=\(status)")
         } else {
-            print("Hotkey Option+Z registered successfully!")
+            logSnap("⚡️ Глобальный хоткей [\(description)] успешно зарегистрирован!")
         }
     }
     

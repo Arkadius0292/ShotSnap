@@ -4,6 +4,8 @@ import CoreGraphics
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
     private var activeEditorController: EditorWindowController?
+    private var captureMenuItem: NSMenuItem?
+    private var hotKeySubmenu: NSMenu?
     
     func applicationDidFinishLaunching(_ notification: Notification) {
         if checkRunningFromDiskImage() {
@@ -108,10 +110,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         
         let menu = NSMenu()
         
-        let captureItem = NSMenuItem(title: "Сделать скриншот (⌥Z)", action: #selector(triggerCapture), keyEquivalent: "z")
-        captureItem.keyEquivalentModifierMask = [.option]
+        let currentPreset = PreferencesManager.shared.hotKeyPreset
+        
+        let captureItem = NSMenuItem(
+            title: "Сделать скриншот (\(currentPreset.displayShortcut))",
+            action: #selector(triggerCapture),
+            keyEquivalent: currentPreset.keyEquivalent
+        )
+        captureItem.keyEquivalentModifierMask = currentPreset.modifierMask
         captureItem.target = self
         menu.addItem(captureItem)
+        self.captureMenuItem = captureItem
+        
+        let hotKeyMenu = NSMenu()
+        for preset in HotKeyPreset.allCases {
+            let item = NSMenuItem(title: preset.title, action: #selector(changeHotKeyPreset(_:)), keyEquivalent: "")
+            item.representedObject = preset.rawValue
+            item.state = (preset == currentPreset) ? .on : .off
+            item.target = self
+            hotKeyMenu.addItem(item)
+        }
+        
+        let hotKeyParentItem = NSMenuItem(title: "Горячая клавиша захвата", action: nil, keyEquivalent: "")
+        hotKeyParentItem.submenu = hotKeyMenu
+        menu.addItem(hotKeyParentItem)
+        self.hotKeySubmenu = hotKeyMenu
         
         menu.addItem(NSMenuItem.separator())
         
@@ -125,7 +148,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         
         menu.addItem(NSMenuItem.separator())
         
-        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.3.5"
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.3.6"
         let infoItem = NSMenuItem(title: "ShotSnap v\(version) · KULESH.PRO", action: nil, keyEquivalent: "")
         infoItem.isEnabled = false
         menu.addItem(infoItem)
@@ -150,10 +173,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     
     private func setupHotKey() {
         HotKeyManager.shared.onHotKeyPressed = { [weak self] in
-            logSnap("⚡️ Получен сигнал глобального хоткея Option+Z")
+            let preset = PreferencesManager.shared.hotKeyPreset
+            logSnap("⚡️ Получен сигнал глобального хоткея [\(preset.displayShortcut)]")
             self?.triggerCapture()
         }
-        HotKeyManager.shared.register()
+        HotKeyManager.shared.register(preset: PreferencesManager.shared.hotKeyPreset)
+    }
+    
+    @objc private func changeHotKeyPreset(_ sender: NSMenuItem) {
+        guard let raw = sender.representedObject as? String,
+              let preset = HotKeyPreset(rawValue: raw) else { return }
+        
+        PreferencesManager.shared.hotKeyPreset = preset
+        HotKeyManager.shared.register(preset: preset)
+        
+        if let submenu = hotKeySubmenu {
+            for item in submenu.items {
+                if let itemRaw = item.representedObject as? String {
+                    item.state = (itemRaw == preset.rawValue) ? .on : .off
+                }
+            }
+        }
+        
+        if let captureItem = captureMenuItem {
+            captureItem.title = "Сделать скриншот (\(preset.displayShortcut))"
+            captureItem.keyEquivalent = preset.keyEquivalent
+            captureItem.keyEquivalentModifierMask = preset.modifierMask
+        }
+        
+        logSnap("✅ Активная горячая клавиша изменена на: \(preset.title)")
     }
     
     @objc func requestPermissions() {
