@@ -8,11 +8,12 @@ echo "🔨 Сборка актуальной версии ShotSnap..."
 "$SCRIPT_DIR/build.sh"
 
 echo "📂 Установка ShotSnap в /Applications..."
+killall ShotSnap 2>/dev/null || true
+sleep 0.5
 rm -rf "/Applications/ShotSnap.app"
 cp -R "$SCRIPT_DIR/ShotSnap.app" "/Applications/ShotSnap.app"
 
 echo "🚀 Запуск ShotSnap..."
-killall ShotSnap 2>/dev/null || true
 open "/Applications/ShotSnap.app"
 
 echo ""

@@ -36,6 +36,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard let button = statusItem?.button else { return }
         
         if #available(macOS 11.0, *), let img = NSImage(systemSymbolName: "camera.viewfinder", accessibilityDescription: "ShotSnap") {
+            img.isTemplate = true
             button.image = img
         } else {
             button.title = "📸"
@@ -60,13 +61,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         
         menu.addItem(NSMenuItem.separator())
         
-        let infoItem = NSMenuItem(title: "ShotSnap v1.5", action: nil, keyEquivalent: "")
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.3.5"
+        let infoItem = NSMenuItem(title: "ShotSnap v\(version) · KULESH.PRO", action: nil, keyEquivalent: "")
         infoItem.isEnabled = false
         menu.addItem(infoItem)
         
         menu.addItem(NSMenuItem.separator())
         
-        let quitItem = NSMenuItem(title: "Завершить ShotSnap", action: #selector(quitApp), keyEquivalent: "q")
+        let uninstallItem = NSMenuItem(title: "🗑️ Удалить ShotSnap...", action: #selector(uninstallApp), keyEquivalent: "")
+        uninstallItem.target = self
+        menu.addItem(uninstallItem)
+        
+        let quitItem = NSMenuItem(title: "🛑 Завершить ShotSnap", action: #selector(quitApp), keyEquivalent: "q")
+        quitItem.keyEquivalentModifierMask = [.command]
         quitItem.target = self
         menu.addItem(quitItem)
         
@@ -139,6 +146,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 
                 logSnap("✨ Окно редактора успешно отображено на целевом экране поверх всех окон и Full-Screen Spaces!")
             }
+        }
+    }
+    
+    @objc private func uninstallApp() {
+        let alert = NSAlert()
+        alert.messageText = "Удалить ShotSnap?"
+        alert.informativeText = "ShotSnap будет остановлен и перемещён в Корзину. Все сохранённые скриншоты останутся на диске без изменений."
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "Переместить в Корзину")
+        alert.addButton(withTitle: "Отмена")
+        
+        NSApp.activate(ignoringOtherApps: true)
+        if alert.runModal() == .alertFirstButtonReturn {
+            let bundleURL = Bundle.main.bundleURL
+            logSnap("🗑️ Инициировано удаление: перемещение \(bundleURL.path) в Корзину...")
+            
+            // Spawn an independent shell process that waits 0.3s for ShotSnap process to exit, then moves app to Trash
+            let safePath = bundleURL.path.replacingOccurrences(of: "\"", with: "\\\"")
+            let script = "sleep 0.3; osascript -e 'tell application \"Finder\" to delete POSIX file \"\(safePath)\"'"
+            let task = Process()
+            task.executableURL = URL(fileURLWithPath: "/bin/sh")
+            task.arguments = ["-c", script]
+            try? task.run()
+            
+            NSApp.terminate(nil)
         }
     }
     
