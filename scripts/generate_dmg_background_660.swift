@@ -131,7 +131,7 @@ func createDMGBackground660x440() -> NSImage {
     subStr.draw(at: CGPoint(x: (size.width - subSize.width) / 2, y: 364))
     
     // Bottom Drag Instruction Pill
-    let pillWidth: CGFloat = 500
+    let pillWidth: CGFloat = 530
     let pillHeight: CGFloat = 36
     let pillRect = CGRect(x: (size.width - pillWidth) / 2, y: 56, width: pillWidth, height: pillHeight)
     let pillPath = CGPath(roundedRect: pillRect, cornerWidth: 18, cornerHeight: 18, transform: nil)
@@ -150,7 +150,7 @@ func createDMGBackground660x440() -> NSImage {
         .font: instrFont,
         .foregroundColor: NSColor(white: 0.92, alpha: 1.0)
     ]
-    let instrStr = NSAttributedString(string: "Перетащите ShotSnap в папку «Программы» для установки", attributes: instrAttrs)
+    let instrStr = NSAttributedString(string: "Перетащите в «Программы» или дважды кликните для автоустановки", attributes: instrAttrs)
     let instrSize = instrStr.size()
     instrStr.draw(at: CGPoint(x: (size.width - instrSize.width) / 2, y: 56 + (pillHeight - instrSize.height) / 2))
     ctx.restoreGState()

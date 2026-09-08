@@ -6,12 +6,76 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var activeEditorController: EditorWindowController?
     
     func applicationDidFinishLaunching(_ notification: Notification) {
+        if checkRunningFromDiskImage() {
+            return
+        }
+        
+        setupActivationPolicy()
         setupStatusItem()
         setupHotKey()
         setupScreenNotifications()
         
         let hasPerm = CGPreflightScreenCaptureAccess()
         logSnap("🚀 ShotSnap запущен (статус записи экрана: \(hasPerm), мониторов: \(NSScreen.screens.count)). Готов к работе.")
+    }
+    
+    private func checkRunningFromDiskImage() -> Bool {
+        let bundlePath = Bundle.main.bundlePath
+        guard bundlePath.hasPrefix("/Volumes/") else { return false }
+        
+        logSnap("📀 ShotSnap запущен из смонтированного DMG: \(bundlePath)")
+        
+        _ = NSApp.setActivationPolicy(.regular)
+        NSApp.activate(ignoringOtherApps: true)
+        
+        let alert = NSAlert()
+        alert.messageText = "Установить ShotSnap в папку «Программы»?"
+        alert.informativeText = "Для правильной работы ShotSnap должен находиться в /Applications. Мы можем автоматически остановить старую запущенную версию и установить новую."
+        alert.alertStyle = .informational
+        alert.addButton(withTitle: "Установить и запустить")
+        alert.addButton(withTitle: "Отмена")
+        
+        if alert.runModal() == .alertFirstButtonReturn {
+            let destPath = "/Applications/ShotSnap.app"
+            let script = """
+            killall ShotSnap 2>/dev/null || true
+            sleep 0.5
+            rm -rf "\(destPath)"
+            cp -R "\(bundlePath)" "\(destPath)"
+            open "\(destPath)"
+            sleep 0.5
+            hdiutil detach "/Volumes/ShotSnap" 2>/dev/null || true
+            """
+            let task = Process()
+            task.executableURL = URL(fileURLWithPath: "/bin/sh")
+            task.arguments = ["-c", script]
+            try? task.run()
+            
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                NSApp.terminate(nil)
+            }
+            return true
+        }
+        return false
+    }
+    
+    private func setupActivationPolicy() {
+        if UserDefaults.standard.object(forKey: "ShowInDock") == nil {
+            UserDefaults.standard.set(true, forKey: "ShowInDock")
+        }
+        let showInDock = UserDefaults.standard.bool(forKey: "ShowInDock")
+        _ = NSApp.setActivationPolicy(showInDock ? .regular : .accessory)
+    }
+    
+    @objc private func toggleDockIcon(_ sender: NSMenuItem) {
+        let current = UserDefaults.standard.bool(forKey: "ShowInDock")
+        let newVal = !current
+        UserDefaults.standard.set(newVal, forKey: "ShowInDock")
+        sender.state = newVal ? .on : .off
+        _ = NSApp.setActivationPolicy(newVal ? .regular : .accessory)
+        if newVal {
+            NSApp.activate(ignoringOtherApps: true)
+        }
     }
     
     private func setupScreenNotifications() {
@@ -66,7 +130,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         infoItem.isEnabled = false
         menu.addItem(infoItem)
         
-        menu.addItem(NSMenuItem.separator())
+        let showDock = UserDefaults.standard.object(forKey: "ShowInDock") == nil ? true : UserDefaults.standard.bool(forKey: "ShowInDock")
+        let dockItem = NSMenuItem(title: "Показывать значок в Dock", action: #selector(toggleDockIcon(_:)), keyEquivalent: "")
+        dockItem.target = self
+        dockItem.state = showDock ? .on : .off
+        menu.addItem(dockItem)
         
         let uninstallItem = NSMenuItem(title: "🗑️ Удалить ShotSnap...", action: #selector(uninstallApp), keyEquivalent: "")
         uninstallItem.target = self
