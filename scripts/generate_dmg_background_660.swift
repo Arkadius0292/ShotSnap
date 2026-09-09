@@ -24,12 +24,17 @@ func createCleanDarkDMGBackground() -> NSImage {
     
     let colorSpace = CGColorSpaceCreateDeviceRGB()
     
-    // 1. Dark Obsidian Gradient (Original look loved by user)
+    // 1. Smooth Gradient from Dark Navy (top) down to Crisp White (bottom)
     let bgColors = [
-        CGColor(red: 0.08, green: 0.10, blue: 0.15, alpha: 1.0), // Top: #141a26
-        CGColor(red: 0.04, green: 0.05, blue: 0.08, alpha: 1.0)  // Bottom: #0a0d14
+        CGColor(red: 0.06, green: 0.08, blue: 0.13, alpha: 1.0), // y=440 (top): #0f1421 Deep Obsidian Navy
+        CGColor(red: 0.10, green: 0.15, blue: 0.24, alpha: 1.0), // y=340: #1a263d Rich Dark Navy
+        CGColor(red: 0.28, green: 0.40, blue: 0.58, alpha: 1.0), // y=240: #476694 Slate Blue behind icons
+        CGColor(red: 0.65, green: 0.77, blue: 0.90, alpha: 1.0), // y=190: #a6c4e6 Soft Sky Blue at icon base
+        CGColor(red: 0.92, green: 0.95, blue: 0.98, alpha: 1.0), // y=145: #ebf2fa Light Ice White behind text labels
+        CGColor(red: 1.00, green: 1.00, blue: 1.00, alpha: 1.0)  // y=0: Pure White at bottom
     ] as CFArray
-    if let gradient = CGGradient(colorsSpace: colorSpace, colors: bgColors, locations: [0.0, 1.0]) {
+    let locations: [CGFloat] = [0.0, 0.23, 0.46, 0.58, 0.72, 1.0]
+    if let gradient = CGGradient(colorsSpace: colorSpace, colors: bgColors, locations: locations) {
         ctx.drawLinearGradient(gradient,
                                start: CGPoint(x: 330, y: 440),
                                end: CGPoint(x: 330, y: 0),
@@ -42,12 +47,12 @@ func createCleanDarkDMGBackground() -> NSImage {
     
     // Radial glow accents behind icons
     let glowColorsCyan = [
-        CGColor(red: 0.0, green: 0.65, blue: 1.0, alpha: 0.22),
-        CGColor(red: 0.0, green: 0.0, blue: 0.0, alpha: 0.0)
+        CGColor(red: 0.0, green: 0.65, blue: 1.0, alpha: 0.18),
+        CGColor(red: 1.0, green: 1.0, blue: 1.0, alpha: 0.0)
     ] as CFArray
     if let g = CGGradient(colorsSpace: colorSpace, colors: glowColorsCyan, locations: [0.0, 1.0]) {
-        ctx.drawRadialGradient(g, startCenter: leftCenter, startRadius: 0, endCenter: leftCenter, endRadius: 130, options: [])
-        ctx.drawRadialGradient(g, startCenter: rightCenter, startRadius: 0, endCenter: rightCenter, endRadius: 130, options: [])
+        ctx.drawRadialGradient(g, startCenter: leftCenter, startRadius: 0, endCenter: leftCenter, endRadius: 110, options: [])
+        ctx.drawRadialGradient(g, startCenter: rightCenter, startRadius: 0, endCenter: rightCenter, endRadius: 110, options: [])
     }
     
     // Floating Dock Pedestals framing ONLY the 128x128 icons (136x136, clean margin, never cuts through text!)
@@ -60,10 +65,10 @@ func createCleanDarkDMGBackground() -> NSImage {
         
         ctx.saveGState()
         ctx.addPath(path)
-        ctx.setFillColor(CGColor(red: 0.12, green: 0.15, blue: 0.22, alpha: 0.45))
+        ctx.setFillColor(CGColor(red: 1.0, green: 1.0, blue: 1.0, alpha: 0.28))
         ctx.fillPath()
         
-        ctx.setStrokeColor(CGColor(red: 0.35, green: 0.45, blue: 0.65, alpha: 0.35))
+        ctx.setStrokeColor(CGColor(red: 0.25, green: 0.50, blue: 0.80, alpha: 0.45))
         ctx.setLineWidth(1.5)
         let dashes: [CGFloat] = [5, 4]
         ctx.setLineDash(phase: 0, lengths: dashes)
