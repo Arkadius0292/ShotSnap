@@ -62,8 +62,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     private func setupActivationPolicy() {
-        if UserDefaults.standard.object(forKey: "ShowInDock") == nil {
-            UserDefaults.standard.set(true, forKey: "ShowInDock")
+        // v1.3.7: Default to pure menu bar utility (.accessory) without cluttering the Dock.
+        // The Dock icon is completely optional and can be toggled via the status menu.
+        if !UserDefaults.standard.bool(forKey: "ShowInDock_UserConfigured") {
+            UserDefaults.standard.set(false, forKey: "ShowInDock")
         }
         let showInDock = UserDefaults.standard.bool(forKey: "ShowInDock")
         _ = NSApp.setActivationPolicy(showInDock ? .regular : .accessory)
@@ -73,6 +75,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let current = UserDefaults.standard.bool(forKey: "ShowInDock")
         let newVal = !current
         UserDefaults.standard.set(newVal, forKey: "ShowInDock")
+        UserDefaults.standard.set(true, forKey: "ShowInDock_UserConfigured")
         sender.state = newVal ? .on : .off
         _ = NSApp.setActivationPolicy(newVal ? .regular : .accessory)
         if newVal {
@@ -148,12 +151,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         
         menu.addItem(NSMenuItem.separator())
         
-        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.3.6"
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.3.7"
         let infoItem = NSMenuItem(title: "ShotSnap v\(version) · KULESH.PRO", action: nil, keyEquivalent: "")
         infoItem.isEnabled = false
         menu.addItem(infoItem)
         
-        let showDock = UserDefaults.standard.object(forKey: "ShowInDock") == nil ? true : UserDefaults.standard.bool(forKey: "ShowInDock")
+        let showDock = UserDefaults.standard.bool(forKey: "ShowInDock")
         let dockItem = NSMenuItem(title: "Показывать значок в Dock", action: #selector(toggleDockIcon(_:)), keyEquivalent: "")
         dockItem.target = self
         dockItem.state = showDock ? .on : .off
@@ -252,6 +255,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 }
                 
                 editor.showWindow(nil)
+                NSApp.activate(ignoringOtherApps: true)
                 if let panel = editor.window as? NSPanel {
                     panel.makeKeyAndOrderFront(nil)
                     panel.orderFrontRegardless()
