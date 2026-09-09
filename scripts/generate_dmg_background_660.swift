@@ -10,7 +10,7 @@ func saveImage(_ image: NSImage, to url: URL) {
     try! pngData.write(to: url)
 }
 
-func createDMGBackground660x440() -> NSImage {
+func createCleanDarkDMGBackground() -> NSImage {
     let size = CGSize(width: 660, height: 440)
     let image = NSImage(size: size)
     
@@ -24,7 +24,7 @@ func createDMGBackground660x440() -> NSImage {
     
     let colorSpace = CGColorSpaceCreateDeviceRGB()
     
-    // Background Dark Obsidian Gradient
+    // 1. Dark Obsidian Gradient (Original look loved by user)
     let bgColors = [
         CGColor(red: 0.08, green: 0.10, blue: 0.15, alpha: 1.0), // Top: #141a26
         CGColor(red: 0.04, green: 0.05, blue: 0.08, alpha: 1.0)  // Bottom: #0a0d14
@@ -36,9 +36,9 @@ func createDMGBackground660x440() -> NSImage {
                                options: [])
     }
     
-    // Icon centers in Cocoa coordinates (Finder y=180 from top -> 440 - 180 = 260 from bottom)
-    let leftCenter = CGPoint(x: 180, y: 250)
-    let rightCenter = CGPoint(x: 480, y: 250)
+    // Icon centers in Cocoa coordinates (Finder y=180 -> 440 - 180 = 260 from bottom)
+    let leftCenter = CGPoint(x: 180, y: 260)
+    let rightCenter = CGPoint(x: 480, y: 260)
     
     // Radial glow accents behind icons
     let glowColorsCyan = [
@@ -50,12 +50,12 @@ func createDMGBackground660x440() -> NSImage {
         ctx.drawRadialGradient(g, startCenter: rightCenter, startRadius: 0, endCenter: rightCenter, endRadius: 130, options: [])
     }
     
-    // Floating Dock Pedestals under the icons (136x136, matching 128x128 icons)
+    // Floating Dock Pedestals framing ONLY the 128x128 icons (136x136, clean margin, never cuts through text!)
     let dockSize: CGFloat = 136
     let cornerR: CGFloat = 28
     
     for centerPt in [leftCenter, rightCenter] {
-        let rect = CGRect(x: centerPt.x - dockSize / 2, y: centerPt.y - dockSize / 2 - 10, width: dockSize, height: dockSize)
+        let rect = CGRect(x: centerPt.x - dockSize / 2, y: centerPt.y - dockSize / 2, width: dockSize, height: dockSize)
         let path = CGPath(roundedRect: rect, cornerWidth: cornerR, cornerHeight: cornerR, transform: nil)
         
         ctx.saveGState()
@@ -63,7 +63,7 @@ func createDMGBackground660x440() -> NSImage {
         ctx.setFillColor(CGColor(red: 0.12, green: 0.15, blue: 0.22, alpha: 0.45))
         ctx.fillPath()
         
-        ctx.setStrokeColor(CGColor(red: 0.35, green: 0.45, blue: 0.65, alpha: 0.3))
+        ctx.setStrokeColor(CGColor(red: 0.35, green: 0.45, blue: 0.65, alpha: 0.35))
         ctx.setLineWidth(1.5)
         let dashes: [CGFloat] = [5, 4]
         ctx.setLineDash(phase: 0, lengths: dashes)
@@ -72,16 +72,16 @@ func createDMGBackground660x440() -> NSImage {
         ctx.restoreGState()
     }
     
-    // Draw macOS Applications Folder Icon on the right pedestal
+    // Draw macOS Applications Folder Icon on the right pedestal (the exact blue folder the user loves!)
     let iconPath = "/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/ApplicationsFolderIcon.icns"
     if let folderIcon = NSImage(contentsOfFile: iconPath) {
         let folderRect = CGRect(x: rightCenter.x - 56, y: rightCenter.y - 56, width: 112, height: 112)
         folderIcon.draw(in: folderRect, from: .zero, operation: .sourceOver, fraction: 0.95)
     }
     
-    // Stylized Glowing Gradient Arrow between icons: from x: 275 to x: 385, y: 240
+    // Stylized Glowing Gradient Arrow between icons: from x: 275 to x: 385, y: 260
     ctx.saveGState()
-    let arrowStartY: CGFloat = 240
+    let arrowStartY: CGFloat = 260
     let arrowStart = CGPoint(x: 275, y: arrowStartY)
     let arrowEnd = CGPoint(x: 375, y: arrowStartY)
     
@@ -162,7 +162,7 @@ func createDMGBackground660x440() -> NSImage {
 let fm = FileManager.default
 let currentDir = URL(fileURLWithPath: fm.currentDirectoryPath)
 let resourcesDir = currentDir.appendingPathComponent("Sources/Resources")
-let dmgBg = createDMGBackground660x440()
+let dmgBg = createCleanDarkDMGBackground()
 let dmgBgOutput = resourcesDir.appendingPathComponent("dmg_background.png")
 saveImage(dmgBg, to: dmgBgOutput)
-print("✅ dmg_background.png (660x440) успешно сохранен: \(dmgBgOutput.path)")
+print("✅ dmg_background.png (clean dark minimalist, no dashed lines cutting text) успешно сохранен: \(dmgBgOutput.path)")
