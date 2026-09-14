@@ -10,7 +10,7 @@ func saveImage(_ image: NSImage, to url: URL) {
     try! pngData.write(to: url)
 }
 
-func createCleanDarkDMGBackground() -> NSImage {
+func createCleanDarkDMGBackground(firstLaunchHint: Bool) -> NSImage {
     let size = CGSize(width: 660, height: 440)
     let image = NSImage(size: size)
     
@@ -138,7 +138,10 @@ func createCleanDarkDMGBackground() -> NSImage {
     // Bottom Drag Instruction Pill
     let pillWidth: CGFloat = 530
     let pillHeight: CGFloat = 36
-    let pillRect = CGRect(x: (size.width - pillWidth) / 2, y: 56, width: pillWidth, height: pillHeight)
+    // Finder считает размер окна вместе с заголовком (~28 pt), нижняя полоса фона не видна —
+    // поэтому с подсказкой первого запуска плашка поднимается, а подсказка встаёт под неё.
+    let pillY: CGFloat = firstLaunchHint ? 100 : 56
+    let pillRect = CGRect(x: (size.width - pillWidth) / 2, y: pillY, width: pillWidth, height: pillHeight)
     let pillPath = CGPath(roundedRect: pillRect, cornerWidth: 18, cornerHeight: 18, transform: nil)
     
     ctx.saveGState()
@@ -157,8 +160,27 @@ func createCleanDarkDMGBackground() -> NSImage {
     ]
     let instrStr = NSAttributedString(string: "Перетащите в «Программы» или дважды кликните для автоустановки", attributes: instrAttrs)
     let instrSize = instrStr.size()
-    instrStr.draw(at: CGPoint(x: (size.width - instrSize.width) / 2, y: 56 + (pillHeight - instrSize.height) / 2))
+    instrStr.draw(at: CGPoint(x: (size.width - instrSize.width) / 2, y: pillY + (pillHeight - instrSize.height) / 2))
     ctx.restoreGState()
+    
+    // Подсказка первого запуска — только для сборок без нотаризации Apple.
+    // На macOS 15+ правый клик → «Открыть» блокировку больше не обходит.
+    if firstLaunchHint {
+        let hintFont = NSFont.systemFont(ofSize: 11, weight: .medium)
+        let hintAttrs: [NSAttributedString.Key: Any] = [
+            .font: hintFont,
+            .foregroundColor: NSColor(white: 0.30, alpha: 1.0)
+        ]
+        let lines = [
+            "Не открывается («Apple не удалось проверить»)? Нажмите «Готово», затем",
+            "Системные настройки → Конфиденциальность и безопасность → «Всё равно открыть»"
+        ]
+        for (i, line) in lines.enumerated() {
+            let str = NSAttributedString(string: line, attributes: hintAttrs)
+            let strSize = str.size()
+            str.draw(at: CGPoint(x: (size.width - strSize.width) / 2, y: 72 - CGFloat(i) * 17))
+        }
+    }
     
     image.unlockFocus()
     return image
@@ -167,7 +189,12 @@ func createCleanDarkDMGBackground() -> NSImage {
 let fm = FileManager.default
 let currentDir = URL(fileURLWithPath: fm.currentDirectoryPath)
 let resourcesDir = currentDir.appendingPathComponent("Sources/Resources")
-let dmgBg = createCleanDarkDMGBackground()
-let dmgBgOutput = resourcesDir.appendingPathComponent("dmg_background.png")
-saveImage(dmgBg, to: dmgBgOutput)
-print("✅ dmg_background.png (clean dark minimalist, no dashed lines cutting text) успешно сохранен: \(dmgBgOutput.path)")
+let variants: [(file: String, hint: Bool)] = [
+    ("dmg_background.png", false),          // нотаризованная сборка (Developer ID)
+    ("dmg_background_unsigned.png", true)   // ad-hoc сборка: с подсказкой первого запуска
+]
+for variant in variants {
+    let output = resourcesDir.appendingPathComponent(variant.file)
+    saveImage(createCleanDarkDMGBackground(firstLaunchHint: variant.hint), to: output)
+    print("✅ \(variant.file) сохранен: \(output.path)")
+}

@@ -23,9 +23,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     
     private func checkRunningFromDiskImage() -> Bool {
         let bundlePath = Bundle.main.bundlePath
-        guard bundlePath.hasPrefix("/Volumes/") else { return false }
-        
-        logSnap("📀 ShotSnap запущен из смонтированного DMG: \(bundlePath)")
+        // Скачанное браузером приложение Gatekeeper запускает не из /Volumes, а из read-only
+        // копии .../AppTranslocation/<UUID>/d/ — одной проверки префикса /Volumes/ мало.
+        let isOnDiskImage = bundlePath.hasPrefix("/Volumes/")
+        let isTranslocated = bundlePath.contains("/AppTranslocation/")
+        guard isOnDiskImage || isTranslocated else { return false }
+
+        logSnap("📀 ShotSnap запущен не из /Applications (DMG: \(isOnDiskImage), translocation: \(isTranslocated)): \(bundlePath)")
         
         _ = NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
@@ -39,11 +43,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         
         if alert.runModal() == .alertFirstButtonReturn {
             let destPath = "/Applications/ShotSnap.app"
+            let safeSource = bundlePath.replacingOccurrences(of: "\"", with: "\\\"")
+            // Запуск этой копии пользователь уже разрешил, поэтому карантин с установленной
+            // копии снимаем — иначе macOS спросит повторно уже про /Applications/ShotSnap.app.
             let script = """
             killall ShotSnap 2>/dev/null || true
             sleep 0.5
             rm -rf "\(destPath)"
-            cp -R "\(bundlePath)" "\(destPath)"
+            ditto "\(safeSource)" "\(destPath)"
+            xattr -dr com.apple.quarantine "\(destPath)" 2>/dev/null || true
             open "\(destPath)"
             sleep 0.5
             hdiutil detach "/Volumes/ShotSnap" 2>/dev/null || true

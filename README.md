@@ -87,20 +87,52 @@
 
 ### Требования
 - macOS 11.0 (Big Sur) или новее.
-- Процессор: Apple Silicon (M1/M2/M3/M4) или Intel x86_64.
-- Установленные `Xcode Command Line Tools` (`xcode-select --install`).
+- Процессор: Apple Silicon (M1 и новее). Готовые сборки пока только arm64.
 
-### Установка в 1 команду
-Склонируйте репозиторий и запустите скрипт установки:
+### Способ 1 — одной командой в Терминале (рекомендуется)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Arkadius0292/ShotSnap/main/install-shotsnap.sh | bash
+```
+
+Скрипт [`install-shotsnap.sh`](install-shotsnap.sh) скачивает `ShotSnap.zip` из последнего GitHub Release, сверяет SHA-256 с опубликованной в релизе суммой, проверяет подпись и ставит приложение в `/Applications`. Файл, скачанный через `curl`, не получает атрибут карантина браузера `com.apple.quarantine`, поэтому окно «Apple не удалось проверить…» не появляется.
+
+### Способ 2 — Homebrew
+
+```bash
+brew install --cask arkadius0292/shotsnap/shotsnap
+```
+
+Обновление: `brew upgrade --cask shotsnap`. Cask лежит в tap-репозитории [`Arkadius0292/homebrew-shotsnap`](https://github.com/Arkadius0292/homebrew-shotsnap), исходник — [`packaging/homebrew/Casks/shotsnap.rb`](packaging/homebrew/Casks/shotsnap.rb).
+
+### Способ 3 — DMG из браузера
+
+Скачайте `ShotSnap.dmg` со [страницы релизов](https://github.com/Arkadius0292/ShotSnap/releases/latest) и перетащите ShotSnap в «Программы».
+
+ShotSnap пока не нотаризован Apple, поэтому при первом запуске скачанной через браузер копии macOS покажет окно **«Apple не удалось проверить, что “ShotSnap.app” не содержит вредоносного ПО»**. Это не значит, что в приложении что-то нашли: macOS так реагирует на любую программу без платной подписи Apple Developer ID. Разрешить запуск один раз:
+
+1. В окне предупреждения нажмите **«Готово»** (не «Переместить в Корзину»).
+2. Откройте **Системные настройки → Конфиденциальность и безопасность** и прокрутите до раздела «Безопасность».
+3. Напротив строки «Программа “ShotSnap.app” заблокирована…» нажмите **«Всё равно открыть»**, подтвердите паролем или Touch ID. Кнопка видна примерно час после попытки запуска.
+
+> На macOS 15 Sequoia и новее правый клик → «Открыть» блокировку больше не обходит — работает только путь через Системные настройки.
+
+Альтернатива для тех, кто привык к Терминалу: снять карантин с уже скопированного приложения.
+
+```bash
+xattr -dr com.apple.quarantine /Applications/ShotSnap.app
+```
+
+### Сборка из исходников
+Нужны `Xcode Command Line Tools` (`xcode-select --install`):
 
 ```bash
 git clone https://github.com/Arkadius0292/ShotSnap.git
 cd ShotSnap
-chmod +x install.sh
 ./install.sh
 ```
 
-Скрипт автоматически скомпилирует бинарный файл, упакует его в `ShotSnap.app`, подпишет системным сертификатом и установит в папку `/Applications`.
+Скрипт скомпилирует бинарный файл, соберёт `ShotSnap.app`, подпишет его ad-hoc со стабильным идентификатором `com.kuleshav.shotsnap` и установит в `/Applications`. Локально собранное приложение карантина не имеет и запускается сразу.
 
 ### Первоначальная настройка прав
 При первом запуске macOS может запросить стандартные разрешения:
@@ -164,6 +196,22 @@ ShotSnap/
     ├── OCRManager.swift        # Распознавание текста через Apple Vision
     └── PreferencesManager.swift# Сохранение настроек цвета и размера в UserDefaults
 ```
+
+---
+
+## 📦 Выпуск релиза
+
+```bash
+./package.sh                        # dist/ShotSnap.dmg, dist/ShotSnap.zip, *.sha256
+./scripts/update_homebrew_cask.sh   # версия и SHA-256 в cask-файл
+gh release create v<версия> dist/ShotSnap.dmg dist/ShotSnap.zip dist/ShotSnap.zip.sha256 dist/ShotSnap.dmg.sha256
+```
+
+После публикации релиза скопируйте обновлённый cask в tap-репозиторий: `./scripts/update_homebrew_cask.sh <путь к checkout homebrew-shotsnap>`.
+
+`package.sh` сам выбирает режим подписи:
+- **Developer ID + нотаризация**, если в связке ключей есть сертификат «Developer ID Application». Подпись с Hardened Runtime ([`ShotSnap.entitlements`](ShotSnap.entitlements)), `notarytool submit --wait` для `.app` и `.dmg`, `stapler staple` для обоих. Разовая настройка: `xcrun notarytool store-credentials shotsnap-notary --apple-id … --team-id … --password <пароль приложения>`. После перехода на Developer ID уберите блок `postflight` из cask-файла.
+- **Ad-hoc**, если сертификата нет. В окно DMG кладётся фон с подсказкой первого запуска.
 
 ---
 

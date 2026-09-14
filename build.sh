@@ -41,7 +41,8 @@ cp Info.plist "$APP_DIR/Contents/Info.plist"
 
 if [ -d "Sources/Resources" ]; then
     echo "🎨 Копирование ресурсов и 3D-иконок..."
-    cp -R Sources/Resources/* "$APP_DIR/Contents/Resources/"
+    # Фоны окна DMG нужны только package.sh — в бандл приложения не кладём.
+    rsync -a --exclude 'dmg_background*.png' Sources/Resources/ "$APP_DIR/Contents/Resources/"
 fi
 
 chmod +x "$APP_DIR/Contents/MacOS/ShotSnap"
