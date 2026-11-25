@@ -99,9 +99,9 @@ final class ImageRenderer {
             if let tiffData = image.tiffRepresentation {
                 item.setData(tiffData, forType: .tiff)
             }
-            let fileURL = URL(fileURLWithPath: persistentPath)
-            item.setString(fileURL.absoluteString, forType: .fileURL)
-            
+            // Важно: НЕ класть public.file-url на временный файл (/tmp) — синхронизаторы
+            // буфера (Paste и т.п.) на другом Mac вставили бы текст пути вместо картинки.
+            // Путь для CLI копируется отдельным действием («Копировать как» → CLI путь).
             pasteboard.writeObjects([item])
         } else {
             pasteboard.writeObjects([image])
