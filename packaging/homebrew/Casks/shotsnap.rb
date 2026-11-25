@@ -1,6 +1,6 @@
 cask "shotsnap" do
-  version "1.3.8"
-  sha256 "194e7af3eee9613eb1f34dee6ebfffa3eb2600cba7417e26cf3c937d4c5f74b4"
+  version "1.3.9"
+  sha256 "05503c076b32ca1a5e0353bfb2d482a1ac2ef7152546b7b8fca903693e0ce5c2"
 
   url "https://github.com/Arkadius0292/ShotSnap/releases/download/v#{version}/ShotSnap.zip"
   name "ShotSnap"
